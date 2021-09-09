@@ -24,23 +24,72 @@ const Game = (function(w, d) {
     var width = null;
     var height = null;
     var ctx = null;
+    var planes = [];
     var lastTime = new Date().getTime();
     var maxTime = 1/30;
   
     function render() { 
         var curTime = new Date().getTime();
-        requestAnimationFrame(loop);
+        requestAnimationFrame(render);
         var dt = (curTime - lastTime)/1000;
         if(dt > maxTime) { dt = maxTime; }
 
-        for(var i=0,len = boards.length;i<len;i++) {
-            if(boards[i]) { 
-                boards[i].step(dt);
-                boards[i].draw(ctx);
-            }
+        for(var i=0, n=planes.length; i<n; i++) {
+            if(!planes[i]) continue;
+            planes[i].step && planes[i].step(dt);
+            planes[i].draw && planes[i].draw(ctx);
         }
         lastTime = curTime;
     }
+
+    function GameObject(pt, w, h, opts) { 
+        this.point = pt || {x: width >> 1, y: height >> 1};
+        this.point.x += 0.5;
+        this.point.y += 0.5;
+        this.width = w || 10;
+        this.height = h || 10;
+        this.options = opts;
+    }
+
+    Object.assign(GameObject.prototype, {
+        draw: function(ctx) {
+            this.rect(this.point, this.width, this.height);
+        },
+        clean: function() {
+            this.clearRect(this.point, this.width, this.height);
+        },
+        step: function(dt) {
+        },
+        circle: function(pt, radius, opt) {
+            if (!ctx) return;
+            opt = Object.assign({ begin: 0, end: 2, radius: radius || 20, width: 1, lineDash: [], strokeStyle: "#999"}, opt);
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, opt.radius, Math.PI * opt.begin, Math.PI * opt.end)
+            applyDefaultStyle(opt);
+            ctx.stroke();
+        },
+        line: function(p0, p1, opt) {
+            if (!ctx) return;
+            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            applyDefaultStyle(opt);
+            ctx.stroke();
+        },
+        rect: function(pt, w, h, opt) {
+            if (!ctx) return;
+            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
+            ctx.beginPath();
+            ctx.rect(pt.x, pt.y, w, h);
+            applyDefaultStyle(opt);
+            ctx.stroke();
+        },
+        clearRect: function(pt, w, h) {
+            if (!ctx) return;
+            ctx.clearRect(pt.x-1, pt.y-1, w+2, h+2);
+        },
+    });
 
     function dist(p0, p1, p2) {
         var a = p2.y - p1.y;
@@ -65,30 +114,22 @@ const Game = (function(w, d) {
 
     return {
         initialize: function(canvasId) {
-            if (!this.canvas) return;
+            if (canvas) return;
             canvas = d.getElementById(canvasId);
-            if (!this.canvas) return alert('Cannot found canvas');
-            width = this.canvas.width;
-            height= this.canvas.height;
-            ctx = this.canvas.getContext && this.canvas.getContext('2d');
+            if (!canvas) return alert('Cannot found canvas');
+            width = canvas.width;
+            height= canvas.height;
+            ctx = canvas.getContext && canvas.getContext('2d');
             render();
         },
-        circle: function(pt, radius, opt) {
-            if (!ctx) return;
-            opt = Object.assign({ begin: 0, end: 2, radius: radius || 20, width: 1, lineDash: [], strokeStyle: "#999"}, opt);
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, opt.radius, Math.PI * opt.begin, Math.PI * opt.end)
-            applyDefaultStyle(opt);
-            ctx.stroke();
+        newObject(pt, w, h, opt) {
+            if (!ctx) return null;
+            var ret = new GameObject(pt, w, h, opt);
+            ret.idx = planes.length;
+            planes.push(ret);
+
+            return ret;
         },
-        line: function(p0, p1, opt) {
-            if (!ctx) return;
-            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
-            ctx.beginPath();
-            ctx.moveTo(p0.x, p0.y);
-            ctx.lineTo(p1.x, p1.y);
-            applyDefaultStyle(opt);
-            ctx.stroke();
-        }
+        
     }
  }(window, document));

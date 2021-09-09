@@ -1,111 +1,44 @@
 <!DOCTYPE html>
 <html>
-
-<head>
-    <title>game01</title>
+  <head>
+    <title>game02</title>
     <style>
-        button.active {
-            background-color: #ccc;
-        }
+      button.active {
+        background-color: #ccc;
+      }
 
-        canvas {
-            border: 1px solid black;
-        }
+      canvas {
+        border: 1px solid black;
+      }
 
-        #canvas1 {
-            position: relative;
-        }
+      #canvas1 {
+        position: relative;
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <p>
-        <button onclick="onShoot()">Shoot</button>
-        <br />
-        <canvas id="canvas1" width="500" height="300"></canvas>
+      <button onclick="onShoot()">Shoot</button>
+      <br />
+      <canvas id="canvas1" width="500" height="300"></canvas>
     </p>
     <script language="JavaScript">
-        var canvas = document.getElementById("canvas1");
-        var ctxCanvas = canvas1.getContext("2d");
+      var obj2;
+      window.addEventListener("load", function () {
+        Game.initialize("canvas1");
+        var obj1 = Game.newObject();
+        obj1.draw = function (ctx) {
+          this.circle(this.point, 5);
+        };
 
-        var data = [];
-        function render() {
-            ctxCanvas.clearRect(0, 0, canvas.width, canvas.height);
-            var now = new Date().getTime();
-            var removes = [];
-            data.forEach(each => {
-                switch (each.type) {
-                    case 'own':
-                        // if (!each.nextShoot || each.nextShoot <= now) {
-                        //     each.nextShoot = now + each.shootRepeat;
-                        //     shoot(0, 1);
-                        // }
-                        return drawCircle(each.pt, each.opt);
-                    case 'shoot':
-                        if (now > each.lifetime) {
-                            removes.push(each);
-                        } else {
-                            let width = 5.0 - now / each.lifetime * 3;
-                            return drawLine(each.pt, each.to, Object.assign(each.opt || {}, { width }));
-                        }
-                        break;
-                    case 'enermy':
-                        return drawCircle(each.pt, each.opt);
-
-                }
-            });
-
-            removes.forEach(each => {
-                var idx = data.findIndex(it => it === each);
-                ~idx && data.splice(idx, 1);
-            });
-
-            requestAnimationFrame(render);
-        }
-        var renderCtl = requestAnimationFrame(render);
-
-        data.push({ type: 'own', pt: { x: canvas.width / 2, y: canvas.height / 2 }, opt: { radius: 10 }, shootRepeat: 1000 });
-        data.push({ type: 'enermy', pt: { x: 20, y: 20 }, opt: { radius: 10, width: 3 }, life: 3 });
-
-        function onShoot() {
-            shoot(0, 1);
-        }
-
-        function shoot(idx, to) {
-            let item = data[idx];
-            let target = data[to];
-            item && data.push({ type: 'shoot', pt: item.pt, to: target.pt, lifetime: new Date().getTime() + 300 });
-        }
-
-        function drawCircle(pt, opt) {
-            opt = Object.assign({ begin: 0, end: 2, radius: 20 }, opt);
-            ctxCanvas.beginPath();
-            ctxCanvas.arc(pt.x, pt.y, opt.radius, Math.PI * opt.begin, Math.PI * opt.end)
-            ctxCanvas.strokeStyle = "#999";
-            ctxCanvas.lineWidth = (opt && opt.width) || 1;
-            ctxCanvas.stroke();
-        }
-
-        function drawLine(p1, p2, opt) {
-            ctxCanvas.beginPath();
-            ctxCanvas.moveTo(p1.x, p1.y);
-            ctxCanvas.lineTo(p2.x, p2.y);
-            ctxCanvas.strokeStyle = "#999";
-            ctxCanvas.setLineDash((opt && opt.lineDash) || []);
-            ctxCanvas.lineWidth = (opt && opt.width) || 1;
-            ctxCanvas.stroke();
-        }
-
-        function dist(p0, p1, p2) {
-            var a = p2.y - p1.y;
-            var b = p1.x - p2.x;
-            return (
-                Math.abs(a * p0.x + b * p0.y + p2.x * p1.y - p1.x * p2.y) /
-                Math.sqrt(a * a + b * b)
-            );
-        }
+        obj2 = Game.newObject({ x: 50, y: 80 });
+        obj2.step = function (dt) {
+          this.clean();
+          this.point.x += 10 * dt;
+        };
+      });
     </script>
     <script src="engine.js"></script>
-</body>
-
+  </body>
 </html>
