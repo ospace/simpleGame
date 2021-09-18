@@ -1,4 +1,4 @@
-const Game = (function(w, d) {
+const GameWorld = (function(w, d) {
     var lastTime = 0;
     var vendors = ['ms', 'moz', 'webkit', 'o'];
     for(var x = 0; x < vendors.length && !w.requestAnimationFrame; ++x) {
@@ -21,10 +21,8 @@ const Game = (function(w, d) {
     };
 
     var canvas = null;
-    var width = null;
-    var height = null;
     var ctx = null;
-    var planes = [];
+    var layers = [];
     var lastTime = new Date().getTime();
     var maxTime = 1/30;
   
@@ -34,16 +32,53 @@ const Game = (function(w, d) {
         var dt = (curTime - lastTime)/1000;
         if(dt > maxTime) { dt = maxTime; }
 
-        for(var i=0, n=planes.length; i<n; i++) {
-            if(!planes[i]) continue;
-            planes[i].step && planes[i].step(dt);
-            planes[i].draw && planes[i].draw(ctx);
-        }
+        GameWorld.clean();
+        layers.forEach(each=>each.step(dt));
+        GameWorld.finally();
+        layers.forEach(each=>each.draw(ctx));
         lastTime = curTime;
     }
 
+    const drawFn = {
+        circle:  function(pt, radius, opt) {
+            if (!ctx) return;
+            opt = Object.assign({ begin: 0, end: 2, radius: radius || 20, width: 1, lineDash: [], strokeStyle: "#999"}, opt);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, opt.radius, Math.PI * opt.begin, Math.PI * opt.end)
+            applyDefaultStyle(opt);
+            ctx.stroke();
+            ctx.restore();
+        },
+        line: function(p0, p1, opt) {
+            if (!ctx) return;
+            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            applyDefaultStyle(opt);
+            ctx.stroke();
+            ctx.restore();
+        },
+        rect: function(pt, w, h, opt) {
+            if (!ctx) return;
+            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(pt.x, pt.y, w, h);
+            applyDefaultStyle(opt);
+            ctx.stroke();
+            ctx.restore();
+        },
+        clearRect: function(pt, w, h) {
+            if (!ctx) return;
+            ctx.clearRect(pt.x-1, pt.y-1, w+2, h+2);
+        },
+    };
+
     function GameObject(pt, w, h, opts) { 
-        this.point = pt || {x: width >> 1, y: height >> 1};
+        this.point = pt || {x: GameWorld.width >> 1, y: GameWorld.height >> 1};
         this.point.x += 0.5;
         this.point.y += 0.5;
         this.width = w || 10;
@@ -51,44 +86,15 @@ const Game = (function(w, d) {
         this.options = opts;
     }
 
-    Object.assign(GameObject.prototype, {
+    Object.assign(GameObject.prototype, drawFn, {
         draw: function(ctx) {
             this.rect(this.point, this.width, this.height);
         },
-        clean: function() {
-            this.clearRect(this.point, this.width, this.height);
-        },
         step: function(dt) {
         },
-        circle: function(pt, radius, opt) {
-            if (!ctx) return;
-            opt = Object.assign({ begin: 0, end: 2, radius: radius || 20, width: 1, lineDash: [], strokeStyle: "#999"}, opt);
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, opt.radius, Math.PI * opt.begin, Math.PI * opt.end)
-            applyDefaultStyle(opt);
-            ctx.stroke();
-        },
-        line: function(p0, p1, opt) {
-            if (!ctx) return;
-            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
-            ctx.beginPath();
-            ctx.moveTo(p0.x, p0.y);
-            ctx.lineTo(p1.x, p1.y);
-            applyDefaultStyle(opt);
-            ctx.stroke();
-        },
-        rect: function(pt, w, h, opt) {
-            if (!ctx) return;
-            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
-            ctx.beginPath();
-            ctx.rect(pt.x, pt.y, w, h);
-            applyDefaultStyle(opt);
-            ctx.stroke();
-        },
-        clearRect: function(pt, w, h) {
-            if (!ctx) return;
-            ctx.clearRect(pt.x-1, pt.y-1, w+2, h+2);
-        },
+        delete: function() {
+            GameWorld.delete(this);
+        }
     });
 
     function dist(p0, p1, p2) {
@@ -112,24 +118,43 @@ const Game = (function(w, d) {
         ctx.lineWidth = opt.width;
     }
 
+    let removed = [];
     return {
         initialize: function(canvasId) {
             if (canvas) return;
             canvas = d.getElementById(canvasId);
             if (!canvas) return alert('Cannot found canvas');
-            width = canvas.width;
-            height= canvas.height;
+            this.width = canvas.width;
+            this.height= canvas.height;
             ctx = canvas.getContext && canvas.getContext('2d');
             render();
         },
         newObject(pt, w, h, opt) {
             if (!ctx) return null;
             var ret = new GameObject(pt, w, h, opt);
-            ret.idx = planes.length;
-            planes.push(ret);
+            ret.idx = layers.length;
+            layers.push(ret);
 
             return ret;
         },
-        
+        clean: function() {
+            if (!ctx) return;
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0)
+            ctx.clearRect(0, 0, GameWorld.width, GameWorld.height);
+            ctx.restore();
+        },
+        delete: function(obj) {
+            if (~removed.indexOf(obj)) return false;
+            removed.push(obj);
+            return true;
+        },
+        finally: function() {
+            removed.forEach(each=>{
+                var idx = layers.indexOf(each);
+                ~idx && layers.splice(idx, 1);
+            });
+            removed = [];
+        },
     }
  }(window, document));

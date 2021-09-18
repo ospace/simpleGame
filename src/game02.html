@@ -24,19 +24,27 @@
       <canvas id="canvas1" width="500" height="300"></canvas>
     </p>
     <script language="JavaScript">
-      var obj2;
+      var enermy;
+      var cnt = 10;
       window.addEventListener("load", function () {
-        Game.initialize("canvas1");
-        var obj1 = Game.newObject();
-        obj1.draw = function (ctx) {
+        GameWorld.initialize("canvas1");
+        var player = GameWorld.newObject();
+        player.draw = function (ctx) {
           this.circle(this.point, 5);
         };
 
-        obj2 = Game.newObject({ x: 50, y: 80 });
-        obj2.step = function (dt) {
-          this.clean();
-          this.point.x += 10 * dt;
-        };
+        function createEmermy() {
+          setTimeout(() => {
+            let ret = GameWorld.newObject({ x: 50, y: 80 });
+
+            ret.step = function (dt) {
+              this.point.x += 100 * dt;
+              this.point.x > GameWorld.width && this.delete();
+            };
+            if (0 < --cnt) createEmermy();
+          }, 2000);
+        }
+        createEmermy();
       });
     </script>
     <script src="engine.js"></script>
