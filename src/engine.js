@@ -47,7 +47,7 @@ const GameWorld = (function(w, d) {
             ctx.beginPath();
             ctx.arc(pt.x, pt.y, opt.radius, Math.PI * opt.begin, Math.PI * opt.end)
             applyDefaultStyle(opt);
-            ctx.stroke();
+            opt.fillStyle ? ctx.fill() : ctx.stroke();
             ctx.restore();
         },
         line: function(p0, p1, opt) {
@@ -68,8 +68,20 @@ const GameWorld = (function(w, d) {
             ctx.beginPath();
             ctx.rect(pt.x, pt.y, w, h);
             applyDefaultStyle(opt);
-            ctx.stroke();
+            opt.fillStyle ? ctx.fill() : ctx.stroke();
             ctx.restore();
+        },
+        text: function(pt, str, opt) {
+            if (!ctx) return;
+            // font: 12px serif, 10px sans-serif
+            // textBaseline: top, hanging, middle, alphabetic(default), ideographic, bottom
+            opt = Object.assign({ font: '10px sans-serif', textAlign: 'left', fillStyle: "#999" }, opt);
+            applyDefaultStyle(opt);
+            ctx.fillText(str, pt.x, pt.y);
+        },
+        measureText(str) {
+            if (!ctx) return;
+            return ctx.measureText(str);
         },
         clearRect: function(pt, w, h) {
             if (!ctx) return;
@@ -92,8 +104,8 @@ const GameWorld = (function(w, d) {
         },
         step: function(dt) {
         },
-        delete: function() {
-            GameWorld.delete(this);
+        destroy: function() {
+            GameWorld.destroy(this);
         }
     });
 
@@ -112,10 +124,10 @@ const GameWorld = (function(w, d) {
                  (o1.x+o1.w-1<o2.x) || (o1.x>o2.x+o2.w-1));
     };
 
+    const ctxAttrs = ['strokeStyle', 'fillStyle', 'lineWidth', 'font', 'textAlign', 'textBaseline'];
     function applyDefaultStyle(opt) {
-        ctx.strokeStyle = opt.strokeStyle;
-        ctx.setLineDash(opt.lineDash);
-        ctx.lineWidth = opt.width;
+        ctxAttrs.forEach(function(attr) { ctx[attr] = opt[attr] });
+        opt.lineDash && ctx.setLineDash(opt.lineDash);
     }
 
     let removed = [];
@@ -144,7 +156,7 @@ const GameWorld = (function(w, d) {
             ctx.clearRect(0, 0, GameWorld.width, GameWorld.height);
             ctx.restore();
         },
-        delete: function(obj) {
+        destroy: function(obj) {
             if (~removed.indexOf(obj)) return false;
             removed.push(obj);
             return true;

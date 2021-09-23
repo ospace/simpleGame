@@ -24,23 +24,82 @@
       <canvas id="canvas1" width="500" height="300"></canvas>
     </p>
     <script language="JavaScript">
-      var enermy;
+      var enemies = [];
       var cnt = 10;
+
       window.addEventListener("load", function () {
         GameWorld.initialize("canvas1");
         var player = GameWorld.newObject();
         player.draw = function (ctx) {
           this.circle(this.point, 5);
         };
+        player.fire = function (target) {
+          target.hit();
+        };
+
+        setInterval(() => {
+          if (!enemies.length) return;
+          //player.fire(enemies[0]);
+          createShoot(player, enemies[0]);
+        }, 1000);
+
+        function createShoot(source, target) {
+          var ret = GameWorld.newObject(source.point);
+          ret.draw = function (ctx) {
+            this.line(this.point, target.point);
+          };
+          ret.step = function (dt) {
+            this.beginDt = this.beginDt ? this.beginDt + dt : dt;
+            if (0.2 < this.beginDt) {
+              source.fire(target);
+              this.destroy();
+            }
+          };
+          return ret;
+        }
+
+        function createExplosion(obj) {
+          var txt = GameWorld.newObject(obj.point);
+          txt.draw = function (ctx) {
+            this.text(this.point, "펑!", {
+              textAlign: "center",
+              textBaseline: "hanging",
+            });
+          };
+
+          txt.step = function (dt) {
+            this.beginDt = this.beginDt ? this.beginDt + dt : dt;
+            if (1 < this.beginDt) this.destroy();
+          };
+
+          return txt;
+        }
 
         function createEmermy() {
           setTimeout(() => {
             let ret = GameWorld.newObject({ x: 50, y: 80 });
 
+            ret.draw = function (ctx) {
+              this.circle(this.point, 5, { fillStyle: "red" });
+            };
             ret.step = function (dt) {
               this.point.x += 100 * dt;
-              this.point.x > GameWorld.width && this.delete();
+              if (this.point.x > GameWorld.width - 20) {
+                this.destroyEnemy();
+              }
             };
+            ret.destroyEnemy = function () {
+              let idx = enemies.indexOf(this);
+              ~idx && enemies.splice(this, 1);
+              this.destroy();
+            };
+
+            ret.hit = function () {
+              createExplosion(this);
+              this.destroyEnemy();
+            };
+
+            enemies.push(ret);
             if (0 < --cnt) createEmermy();
           }, 2000);
         }
