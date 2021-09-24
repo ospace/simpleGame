@@ -104,8 +104,8 @@ const GameWorld = (function(w, d) {
         },
         step: function(dt) {
         },
-        destroy: function() {
-            GameWorld.destroy(this);
+        delete: function() {
+            GameWorld.delete(this);
         }
     });
 
@@ -156,7 +156,7 @@ const GameWorld = (function(w, d) {
             ctx.clearRect(0, 0, GameWorld.width, GameWorld.height);
             ctx.restore();
         },
-        destroy: function(obj) {
+        delete: function(obj) {
             if (~removed.indexOf(obj)) return false;
             removed.push(obj);
             return true;
