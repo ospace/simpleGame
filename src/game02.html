@@ -39,12 +39,16 @@
         };
         allies.push(ally);
 
+        // setInterval(() => {
+        //   if (!enemies.length) return;
+        //   //player.fire(enemies[0]);
+        //   // createShoot(ally, enemies[0]);
+        //   createTrackingMissile(ally, enemies[0]);
+        // }, 1000);
+
         setInterval(() => {
-          if (!enemies.length) return;
-          //player.fire(enemies[0]);
-          // createShoot(ally, enemies[0]);
-          createTrackingMissile(ally, enemies[0]);
-        }, 1000);
+          createTrackingMissile(ally);
+        }, 1400);
 
         function createShoot(source, target) {
           var ret = GameWorld.newObject(source.point);
@@ -61,21 +65,33 @@
           return ret;
         }
 
-        function createTrackingMissile(source, target) {
-          var ret = GameWorld.netObject(source.point);
+        function createTrackingMissile(player) {
+          var ret = GameWorld.newObject(Object.assign({}, player.point));
           ret.draw = function (ctx) {
             if (!this.via) return;
             this.line(this.point, this.via);
           };
 
           ret.step = function (dt) {
-            let q = Math.atan(
-              (target.point.y - this.point.y) / (target.point.x - this.point.x)
+            if (!enemies.length) {
+              return this.delete();
+            }
+
+            let enermy = enemies[0];
+            let q = Math.atan2(
+              enermy.point.y - this.point.y,
+              enermy.point.x - this.point.x
             );
+            this.point = this.via || this.point;
             this.via = {
-              x: this.point.x + 150 * dt * Math.cos(q),
-              y: this.point.x + 150 * dt * Math.sin(q),
+              x: this.point.x + 3 * Math.cos(q),
+              y: this.point.y + 3 * Math.sin(q),
             };
+
+            if (enermy.collide(this.via)) {
+              enermy.hit();
+              this.delete();
+            }
           };
 
           return ret;
@@ -124,9 +140,18 @@
               this.destroyEnemy();
             };
 
+            ret.collide = function (pt) {
+              return (
+                25 >
+                Math.pow(this.point.x - pt.x, 2) +
+                  Math.pow(this.point.y - pt.y, 2)
+              );
+            };
+
             enemies.push(ret);
-            if (0 < --cnt) createEmermy();
-          }, 2000);
+            //if (0 < --cnt) createEmermy();
+            createEmermy();
+          }, 1000);
         }
         createEmermy();
       });
