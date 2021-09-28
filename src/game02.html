@@ -28,6 +28,8 @@
       var allies = [];
       var cnt = 10;
 
+      var onShoot;
+
       window.addEventListener("load", function () {
         GameWorld.initialize("canvas1");
         var ally = GameWorld.newObject();
@@ -46,9 +48,13 @@
         //   createTrackingMissile(ally, enemies[0]);
         // }, 1000);
 
-        setInterval(() => {
+        // setInterval(() => {
+        //   createTrackingMissile(ally);
+        // }, 1400);
+
+        onShoot = function () {
           createTrackingMissile(ally);
-        }, 1400);
+        };
 
         function createShoot(source, target) {
           var ret = GameWorld.newObject(source.point);

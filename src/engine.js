@@ -1,4 +1,6 @@
-const GameWorld = (function(w, d) {
+(function umd(root, factory) {
+    root.GameWorld = factory(window, document);
+}(this, function(w, d) {
     var lastTime = 0;
     var vendors = ['ms', 'moz', 'webkit', 'o'];
     for(var x = 0; x < vendors.length && !w.requestAnimationFrame; ++x) {
@@ -33,10 +35,16 @@ const GameWorld = (function(w, d) {
         if(dt > maxTime) { dt = maxTime; }
 
         GameWorld.clean();
-        layers.forEach(each=>each.step(dt));
+        eachAction('step', dt);
         GameWorld.finally();
-        layers.forEach(each=>each.draw(ctx));
+        eachAction('draw', ctx);
         lastTime = curTime;
+    }
+
+    function eachAction(funcName, param) {
+        for(var i=0, n = layers.length; i < n; ++i) {
+            layers[i][funcName](param);
+        }
     }
 
     const drawFn = {
@@ -66,9 +74,18 @@ const GameWorld = (function(w, d) {
             opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
             ctx.save();
             ctx.beginPath();
-            ctx.rect(pt.x, pt.y, w, h);
             applyDefaultStyle(opt);
+            ctx.rect(pt.x, pt.y, w, h);
             opt.fillStyle ? ctx.fill() : ctx.stroke();
+            ctx.restore();
+        },
+        fillRect: function(pt, w, h, opt) {
+            if (!ctx) return;
+            opt = Object.assign({ width: 1, lineDash: [], fillStyle: "#999" }, opt);
+            ctx.save();
+            ctx.beginPath();
+            applyDefaultStyle(opt);
+            ctx.fillRect(pt.x, pt.y, w, h);
             ctx.restore();
         },
         text: function(pt, str, opt) {
@@ -99,11 +116,11 @@ const GameWorld = (function(w, d) {
     }
 
     Object.assign(GameObject.prototype, drawFn, {
+        setup: function() {},
         draw: function(ctx) {
             this.rect(this.point, this.width, this.height);
         },
-        step: function(dt) {
-        },
+        step: function(dt) {},
         delete: function() {
             GameWorld.delete(this);
         }
@@ -132,17 +149,21 @@ const GameWorld = (function(w, d) {
 
     let removed = [];
     return {
-        initialize: function(canvasId) {
+        initialize: function(canvasId, startup) {
             if (canvas) return;
             canvas = d.getElementById(canvasId);
             if (!canvas) return alert('Cannot found canvas');
             this.width = canvas.width;
             this.height= canvas.height;
             ctx = canvas.getContext && canvas.getContext('2d');
+
+            eachAction('setup');
             render();
+            
+            'function' === typeof startup && startup();
         },
         newObject(pt, w, h, opt) {
-            if (!ctx) return null;
+            //if (!ctx) return null;
             var ret = new GameObject(pt, w, h, opt);
             ret.idx = layers.length;
             layers.push(ret);
@@ -168,5 +189,56 @@ const GameWorld = (function(w, d) {
             });
             removed = [];
         },
+        createPattern: function (size, lines, type, lineColor1, lineColor2) {
+            if (!ctx) return null;
+
+            size = size || 50;
+            lines = lines || 10;
+            type = type || 1;
+            lineColor1 = lineColor1 || "red";
+            lineColor2 = lineColor2 || "yellow";
+            const patternCanvas = document.createElement("canvas");
+            const patternContext = patternCanvas.getContext("2d");
+            patternCanvas.width = patternCanvas.height = size;
+            patternContext.lineCap = "square";
+            patternContext.lineWidth = size / lines;
+    
+            var drawLine;
+            if (1 === type) {
+                drawLine = function (to) {
+                patternContext.moveTo(0, to);
+                patternContext.lineTo(size, to);
+                };
+            } else if (2 === type) {
+                drawLine = function (to) {
+                patternContext.moveTo(to, 0);
+                patternContext.lineTo(to, size);
+                };
+            } else if (3 === type) {
+                lines = (lines << 1) + 1;
+                drawLine = function (to) {
+                patternContext.moveTo(to - size, 0);
+                patternContext.lineTo(to, size);
+                };
+            } else if (4 === type) {
+                lines = (lines << 1) + 1;
+                drawLine = function (to) {
+                patternContext.moveTo(to, 0);
+                patternContext.lineTo(0, to);
+                };
+            } else {
+                return;
+            }
+    
+            const width = patternContext.lineWidth / 2;
+            for (var i = 0; i < lines; ++i) {
+                patternContext.beginPath();
+                patternContext.strokeStyle = i % 2 ? lineColor1 : lineColor2;
+                drawLine(i * patternContext.lineWidth + width);
+                patternContext.stroke();
+            }
+    
+            return ctx.createPattern(patternCanvas, "repeat");
+        }
     }
- }(window, document));
+}));
