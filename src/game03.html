@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>game03</title>
+    <style>
+      button.active {
+        background-color: #ccc;
+      }
+
+      canvas {
+        border: 1px solid black;
+      }
+
+      #canvas1 {
+        position: relative;
+      }
+    </style>
+  </head>
+
+  <body>
+    <p>
+      <canvas id="canvas1" width="510" height="300"></canvas>
+    </p>
+    <script src="engine.js"></script>
+    <script src="util.js"></script>
+    <script language="JavaScript">
+      //var enemies = [];
+      //var allies = [];
+      //var cnt = 10;
+
+      // var canvas = document.getElementById("canvas1");
+      // var ctx = canvas.getContext("2d");
+      // var pattern = GameWorld.createPattern(ctx, 5, 2, 3, "lightgray", "gray");
+
+      // ctx.fillStyle = pattern;
+      // ctx.fillRect(0, 0, canvas.width / 2, canvas.height / 2);
+      // ctx.beginPath();
+      // ctx.strokeStyle = "darkgray";
+      // ctx.lineWidth = 1;
+      // ctx.fillStyle = null;
+      // ctx.strokeRect(0, 0, canvas.width / 2, canvas.height / 2);
+
+      function Heap(compare) {
+        this.data = [];
+        this.compare =
+          compare ||
+          function (l, r) {
+            return l - r;
+          };
+      }
+
+      Object.assign(Heap.prototype, {
+        push: function (val) {
+          let idx = this.data.length + 1;
+          this.data.push(val);
+          while (1 < idx) {
+            let p = idx >> 1;
+            if (0 >= this.compare(this.data[p - 1], this.data[idx - 1])) break;
+            this.swap(p - 1, idx - 1);
+            idx = p;
+          }
+        },
+        pop: function () {
+          if (this.empty()) return undefined;
+          let ret = this.data[0];
+          let lastIdx = this.data.length - 1;
+          let lastValue = this.data.pop();
+          if (0 < lastIdx) {
+            this.data[0] = lastValue;
+            let id = 1,
+              c = 0;
+            while (id < lastIdx) {
+              c = id << 1;
+              if (c > lastIdx) break;
+              if (c < lastIdx) {
+                c =
+                  0 > this.compare(this.data[c - 1], this.data[c]) ? c : c + 1;
+              }
+              if (0 >= this.compare(this.data[id - 1], this.data[c - 1])) break;
+              this.swap(id - 1, c - 1);
+              id = c;
+            }
+          }
+          return ret;
+        },
+        clear: function () {
+          this.data = [];
+        },
+        swap: function (idx0, idx1) {
+          let tmp = this.data[idx0];
+          this.data[idx0] = this.data[idx1];
+          this.data[idx1] = tmp;
+        },
+        empty: function () {
+          return 0 === this.data.length;
+        },
+      });
+
+      var tileSize = 30;
+      var wallMeta = [
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+        [2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      ];
+
+      var source = { x: 0, y: 4 };
+      var target = { x: 16, y: 5 };
+
+      var wall = GameWorld.newObject();
+      wall.setup = function (dt) {
+        this.ptnWall = [
+          GameWorld.createPattern(5, 2, 3, "lightgray", "gray"),
+          GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
+        ];
+      };
+      wall.draw = function (ctx) {
+        for (var i = 0; i < wallMeta.length; ++i) {
+          for (var j = 0; j < wallMeta[i].length; ++j) {
+            this.drawWall(j, i, wallMeta[i][j]);
+          }
+        }
+      };
+      wall.drawWall = function (x, y, type) {
+        if (!type) return;
+        this.fillRect(
+          { x: x * tileSize, y: y * tileSize },
+          tileSize,
+          tileSize,
+          {
+            fillStyle: this.ptnWall[type - 1],
+          }
+        );
+      };
+
+      var search = GameWorld.newObject();
+
+      search.setup = function () {
+        this.working = new Heap(function (l, r) {
+          return l.f - r.f;
+        });
+        // this.working = [];
+        this.visitedIdx = [];
+        this.indes = [];
+        this.done = null;
+        this.sizeX = Math.floor(GameWorld.width / tileSize);
+        this.sizeY = Math.floor(GameWorld.height / tileSize);
+        let n = Object.assign({}, source, {
+          index: this.indexOf(source),
+          g: 0,
+          order: 0,
+          h: Math.abs(source.x - target.x) + Math.abs(source.y - target.y),
+        });
+        n.f = n.g + n.h;
+        this.working.push(n);
+        this.indes[n.index] = n;
+      };
+
+      search.step0 = function (dt) {
+        if (!this.working.length) return;
+        var self = this;
+        var n = this.working.shift();
+        if (n.x === target.x && n.y === target.y) {
+          this.working = [];
+          this.done = n;
+          return;
+        }
+        var list = [
+          { x: n.x + 1, y: n.y },
+          { x: n.x - 1, y: n.y },
+          { x: n.x, y: n.y - 1 },
+          { x: n.x, y: n.y + 1 },
+        ];
+        list = list.filter(function (each) {
+          return (
+            0 <= each.x &&
+            0 <= each.y &&
+            each.x < self.sizeX &&
+            each.y < self.sizeY
+          );
+        });
+        list.forEach(function (each) {
+          each.index = self.indexOf(each);
+        });
+        list = list
+          .filter(function (each) {
+            return !self.indes[each.index];
+          })
+          .filter(function (each) {
+            return !wallMeta[each.y][each.x];
+          });
+        let order = ++n.order;
+        list.forEach(function (each) {
+          each.order = order;
+          each.parent = n;
+          self.working.push(each);
+          self.indes[each.index] = each;
+        });
+      };
+
+      search.step = function (dt) {
+        if (this.working.empty()) return;
+        var self = this;
+        // 1.작업목록에서 작은 F인 현재노드 추출
+        let n = this.working.pop();
+        if (n.x === target.x && n.y === target.y) {
+          this.working.clear();
+          this.done = n;
+          return;
+        }
+        // 2. 현재노드에서 상하좌우노드 추출
+        let list = [
+          { x: n.x + 1, y: n.y },
+          { x: n.x - 1, y: n.y },
+          { x: n.x, y: n.y - 1 },
+          { x: n.x, y: n.y + 1 },
+        ];
+        // 3. 추출노드 유효성 체크
+        list = list.filter(function (each) {
+          return (
+            0 <= each.x &&
+            0 <= each.y &&
+            each.x < self.sizeX &&
+            each.y < self.sizeY
+          );
+        });
+        // 4. 추출노드 인덱스
+        list.forEach(function (each) {
+          each.index = self.indexOf(each);
+        });
+        // 5. 추출노드 장애물, 방문여부 체크
+        list = list.filter(function (each) {
+          return !wallMeta[each.y][each.x] && !self.visitedIdx[each.index];
+        });
+        // 6. 추출노드 F값 계산
+        // 7. 추출노드에 현재노드를 부모로 설정
+        list.forEach(function (each) {
+          each.h = Math.abs(each.x - target.x) + Math.abs(each.y - target.y);
+          each.g = n.g + 1;
+          each.f = each.h + each.g;
+          each.parent = n;
+        });
+
+        // 8. 추출노드가 작업목록에 있다면 F값이 작다면 갱신 없다면 추가
+        // 9. 현재노드 방문목록에 추가
+        list.forEach(function (each) {
+          let item = self.indes[each.index];
+          if (!item || (item && item.f > each.f)) {
+            self.indes[each.index] = each;
+          }
+
+          self.working.push(each);
+        });
+
+        this.visitedIdx[n.index] = true;
+      };
+
+      search.indexOf = function (pt) {
+        return pt.y * this.sizeX + pt.x;
+      };
+
+      search.draw = function (ctx) {
+        // this.drawNum(this.working[0], "1");
+        if (this.done) {
+          let n = this.done;
+          do {
+            this.fillRect(
+              { x: tileSize * n.x, y: tileSize * n.y },
+              tileSize,
+              tileSize,
+              { fillStyle: "red" }
+            );
+          } while ((n = n.parent));
+        }
+
+        this.indes.forEach(
+          function (each) {
+            this.drawNum(each, each.f);
+            //this.drawNum(each, each.index);
+          }.bind(this)
+        );
+      };
+
+      search.drawNum = function (pt, txt) {
+        this.text(
+          {
+            x: tileSize * pt.x + tileSize / 2,
+            y: tileSize * pt.y + tileSize / 2,
+          },
+          txt,
+          {
+            textAlign: "center",
+            textBaseline: "middle",
+          }
+        );
+
+        this.rect(
+          { x: tileSize * pt.x, y: tileSize * pt.y },
+          tileSize,
+          tileSize,
+          { strokeStyle: "black" }
+        );
+      };
+
+      search.f = function (pt) {};
+
+      // var node = GameWorld.newObject();
+
+      // node.setup = function () {
+      //   this.point = { x: 0, y: 4 };
+      //   this.radius = tileSize / 2;
+      // };
+
+      // node.draw = function (ctx) {
+      //   this.circle(
+      //     {
+      //       x: this.point.x * tileSize + this.radius,
+      //       y: this.point.y * tileSize + this.radius,
+      //     },
+      //     this.radius,
+      //     { fillStyle: "blue" }
+      //   );
+      // };
+
+      window.addEventListener("load", function () {
+        GameWorld.initialize("canvas1");
+      });
+    </script>
+  </body>
+</html>

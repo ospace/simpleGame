@@ -92,7 +92,7 @@
             if (!ctx) return;
             // font: 12px serif, 10px sans-serif
             // textBaseline: top, hanging, middle, alphabetic(default), ideographic, bottom
-            opt = Object.assign({ font: '10px sans-serif', textAlign: 'left', fillStyle: "#999" }, opt);
+            opt = Object.assign({ font: '11px sans-serif', textAlign: 'left', fillStyle: "#ccc" }, opt);
             applyDefaultStyle(opt);
             ctx.fillText(str, pt.x, pt.y);
         },
