@@ -103,7 +103,7 @@
         [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
         [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
         [2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
         [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
@@ -145,7 +145,7 @@
         this.working = new Heap(function (l, r) {
           return l.f - r.f;
         });
-        // this.working = [];
+        //this.working = [];
         this.visitedIdx = [];
         this.indes = [];
         this.done = null;
@@ -166,17 +166,16 @@
         if (!this.working.length) return;
         var self = this;
         var n = this.working.shift();
-        n = self.indes[n.index];
         if (n.x === target.x && n.y === target.y) {
           this.working = [];
           this.done = n;
           return;
         }
         var list = [
-          { x: n.x, y: n.y - 1 },
-          { x: n.x, y: n.y + 1 },
-          { x: n.x - 1, y: n.y },
           { x: n.x + 1, y: n.y },
+          { x: n.x - 1, y: n.y },
+          { x: n.x, y: n.y + 1 },
+          { x: n.x, y: n.y - 1 },
         ];
         list = list.filter(function (each) {
           return (
@@ -210,6 +209,8 @@
         var self = this;
         // 1.작업목록에서 작은 F인 현재노드 추출
         let n = this.working.pop();
+        if (this.visitedIdx[n.index]) return;
+
         this.visitedIdx[n.index] = true;
         if (n.x === target.x && n.y === target.y) {
           this.working.clear();
@@ -220,8 +221,8 @@
         let list = [
           { x: n.x + 1, y: n.y },
           { x: n.x - 1, y: n.y },
-          { x: n.x, y: n.y - 1 },
           { x: n.x, y: n.y + 1 },
+          { x: n.x, y: n.y - 1 },
         ];
         // 3. 추출노드 유효성 체크
         list = list.filter(function (each) {
@@ -247,19 +248,16 @@
           each.g = n.g + 1;
           each.f = each.h + each.g;
           each.parent = n;
+          each.order = n.order + 1;
         });
 
         // 8. 추출노드가 작업목록에 있다면 F값이 작다면 갱신 없다면 추가
         // 9. 현재노드 방문목록에 추가
         list.forEach(function (each) {
           let item = self.indes[each.index];
-          if (!item) {
+          if (!item || item.f > each.f) {
             self.indes[each.index] = each;
-          } else if (item.f > each.f) {
-            console.log("lower:", each.index, "-", item.f, "vs.", each.f);
-            Object.assign(self.indes[each.index], each);
           }
-
           self.working.push(each);
         });
       };
@@ -284,7 +282,7 @@
 
         this.indes.forEach(
           function (each) {
-            this.drawNum(each, each.index, each.f, each.g);
+            this.drawNum(each, each.index, each.f, each.order);
           }.bind(this)
         );
       };
