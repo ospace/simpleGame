@@ -34,7 +34,7 @@
         GameWorld.initialize("canvas1");
         var ally = GameWorld.newObject();
         ally.draw = function (ctx) {
-          this.circle(this.point, 5);
+          GameUtils.circle(ctx, this.point, 5);
         };
         ally.fire = function (target) {
           target.hit();
@@ -111,7 +111,7 @@
               textAlign: "center",
               textBaseline: "middle",
             });
-            this.circle(this.point, 7);
+            GameUtils.circle(ctx, this.point, 7);
           };
 
           txt.step = function (dt) {
@@ -127,7 +127,7 @@
             let ret = GameWorld.newObject({ x: 50, y: 80 });
 
             ret.draw = function (ctx) {
-              this.circle(this.point, 5, { fillStyle: "red" });
+              GameUtils.circle(ctx, this.point, 5, { fillStyle: "red" });
             };
             ret.step = function (dt) {
               this.point.x += 100 * dt;
@@ -163,5 +163,6 @@
       });
     </script>
     <script src="engine.js"></script>
+    <script src="util.js"></script>
   </body>
 </html>

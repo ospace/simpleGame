@@ -24,7 +24,10 @@
 
     var canvas = null;
     var ctx = null;
-    var layers = [];
+    let removed = [];
+    var layers = [[]];
+    var lastLayer = 0;
+    var lastId = 0;
     var lastTime = new Date().getTime();
     var maxTime = 1/30;
   
@@ -42,69 +45,22 @@
     }
 
     function eachAction(funcName, param) {
-        for(var i=0, n = layers.length; i < n; ++i) {
-            layers[i][funcName](param);
+        for(var i = 0, n = layers.length; i < n; ++i) {
+            var layer = layers[i];
+            if (!layer) continue;
+            for(var j = 0, m = layer.length; j < m; ++j) {
+                layer[j][funcName](param);
+            }
         }
     }
 
-    const drawFn = {
-        circle:  function(pt, radius, opt) {
-            if (!ctx) return;
-            opt = Object.assign({ begin: 0, end: 2, radius: radius || 20, width: 1, lineDash: [], strokeStyle: "#999"}, opt);
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, opt.radius, Math.PI * opt.begin, Math.PI * opt.end)
-            applyDefaultStyle(opt);
-            opt.fillStyle ? ctx.fill() : ctx.stroke();
-            ctx.restore();
-        },
-        line: function(p0, p1, opt) {
-            if (!ctx) return;
-            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
-            ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(p0.x, p0.y);
-            ctx.lineTo(p1.x, p1.y);
-            applyDefaultStyle(opt);
-            ctx.stroke();
-            ctx.restore();
-        },
-        rect: function(pt, w, h, opt) {
-            if (!ctx) return;
-            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
-            ctx.save();
-            ctx.beginPath();
-            applyDefaultStyle(opt);
-            ctx.rect(pt.x, pt.y, w, h);
-            opt.fillStyle ? ctx.fill() : ctx.stroke();
-            ctx.restore();
-        },
-        fillRect: function(pt, w, h, opt) {
-            if (!ctx) return;
-            opt = Object.assign({ width: 1, lineDash: [], fillStyle: "#999" }, opt);
-            ctx.save();
-            ctx.beginPath();
-            applyDefaultStyle(opt);
-            ctx.fillRect(pt.x, pt.y, w, h);
-            ctx.restore();
-        },
-        text: function(pt, str, opt) {
-            if (!ctx) return;
-            // font: 12px serif, 10px sans-serif
-            // textBaseline: top, hanging, middle, alphabetic(default), ideographic, bottom
-            opt = Object.assign({ font: '11px sans-serif', textAlign: 'left', fillStyle: "#ccc" }, opt);
-            applyDefaultStyle(opt);
-            ctx.fillText(str, pt.x, pt.y);
-        },
-        measureText(str) {
-            if (!ctx) return;
-            return ctx.measureText(str);
-        },
-        clearRect: function(pt, w, h) {
-            if (!ctx) return;
-            ctx.clearRect(pt.x-1, pt.y-1, w+2, h+2);
-        },
-    };
+    function pushLayer(idx, obj) {
+        var layer = layers[idx];
+        if (!layer) {
+            layers[idx] = layer = [];
+        }
+        layer.push(obj);
+    }
 
     function GameObject(pt, w, h, opts) { 
         this.point = pt || {x: GameWorld.width >> 1, y: GameWorld.height >> 1};
@@ -115,16 +71,33 @@
         this.options = opts;
     }
 
-    Object.assign(GameObject.prototype, drawFn, {
+    Object.assign(GameObject.prototype, {
         setup: function() {},
         draw: function(ctx) {
-            this.rect(this.point, this.width, this.height);
+            GameUtils.rect(ctx, this.point, this.width, this.height);
         },
         step: function(dt) {},
         delete: function() {
             GameWorld.delete(this);
         }
     });
+
+    var entityProto = {
+        created(ctx) {
+        },
+        destoryed() {
+        },
+        beforeUpdate(dt) {
+        },
+        updated(ctx) {
+        },
+        delete: function() {
+            GameWorld.delete(this);
+        },
+        setup: function(ctx) { this.created(ctx); },
+        draw: function(ctx) { this.updated(ctx); },
+        step: function(dt) { this.beforeUpdate(dt); },
+    };
 
     function dist(p0, p1, p2) {
         var a = p2.y - p1.y;
@@ -141,18 +114,27 @@
                  (o1.x+o1.w-1<o2.x) || (o1.x>o2.x+o2.w-1));
     };
 
-    const ctxAttrs = ['strokeStyle', 'fillStyle', 'lineWidth', 'font', 'textAlign', 'textBaseline'];
-    function applyDefaultStyle(opt) {
-        ctxAttrs.forEach(function(attr) { ctx[attr] = opt[attr] });
-        opt.lineDash && ctx.setLineDash(opt.lineDash);
+    function onMouseDown(ev) {
+
     }
 
-    let removed = [];
+    function onMouseUp(ev) {
+        this.emit('point', {x: ev.offsetX, y:ev.offsetY});
+    }
+
+    function onMouseMove(ev) {
+        
+    }
+
     return {
         initialize: function(canvasId, startup) {
             if (canvas) return;
             canvas = d.getElementById(canvasId);
             if (!canvas) return alert('Cannot found canvas');
+            canvas.addEventListener("mousedown", onMouseDown);
+            canvas.addEventListener("mouseup", onMouseUp);
+            canvas.addEventListener("mousemove", onMouseMove);
+
             this.width = canvas.width;
             this.height= canvas.height;
             ctx = canvas.getContext && canvas.getContext('2d');
@@ -162,11 +144,27 @@
             
             'function' === typeof startup && startup();
         },
+        Entity: function(id, proto) {
+            Object.setPrototypeOf(proto, entityProto);
+            this.Entity[id] = function(ctx) {
+                Object.setPrototypeOf(this, proto);
+                this.super = entityProto;
+                this.layer_ = ctx.layer || lastLayer;
+                this.id_ = ++lastId;
+                pushLayer(this.layer_, this);
+                this.created(ctx);
+            }
+        },
         newObject(pt, w, h, opt) {
             //if (!ctx) return null;
             var ret = new GameObject(pt, w, h, opt);
-            ret.idx = layers.length;
-            layers.push(ret);
+            ret.idx = ++lastId;
+            ret.layer = lastLayer;
+            let layer = layers[lastLayer];
+            if (!layer) {
+                layers[lastLayer] = layer = [];
+            }
+            layer.push(ret);
 
             return ret;
         },
@@ -239,6 +237,15 @@
             }
     
             return ctx.createPattern(patternCanvas, "repeat");
+        },
+        on: function(eventId, handler) {
+            canvas.addEventListener(eventId, handler);
+        },
+        off: function(eventId, handler) {
+            canvas.removeEventListener(eventId, handler);
+        },
+        emit: function(eventId, detail) {
+            canvas.eventDispatch(new CustomEvent(eventId, { detail: detail }));
         }
     }
 }));

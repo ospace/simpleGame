@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>game03</title>
+    <title>game04</title>
     <style>
       button.active {
         background-color: #ccc;
@@ -107,13 +107,14 @@
       wall.draw = function (ctx) {
         for (var i = 0; i < wallMeta.length; ++i) {
           for (var j = 0; j < wallMeta[i].length; ++j) {
-            this.drawWall(j, i, wallMeta[i][j]);
+            this.drawWall(ctx, j, i, wallMeta[i][j]);
           }
         }
       };
-      wall.drawWall = function (x, y, type) {
+      wall.drawWall = function (ctx, x, y, type) {
         if (!type) return;
-        this.fillRect(
+        GameUtils.fillRect(
+          ctx,
           { x: x * tileSize, y: y * tileSize },
           tileSize,
           tileSize,
@@ -211,7 +212,8 @@
         if (this.done) {
           let n = this.done;
           do {
-            this.fillRect(
+            GameUtils.fillRect(
+              ctx,
               { x: tileSize * n.x, y: tileSize * n.y },
               tileSize,
               tileSize,
@@ -222,13 +224,14 @@
 
         this.indes.forEach(
           function (each) {
-            this.drawNum(each, each.index, each.f, each.order);
+            this.drawNum(ctx, each, each.index, each.f, each.order);
           }.bind(this)
         );
       };
 
-      search.drawNum = function (pt, txtCenter, txtBL, txtBR) {
-        this.text(
+      search.drawNum = function (ctx, pt, txtCenter, txtBL, txtBR) {
+        GameUtils.text(
+          ctx,
           {
             x: tileSize * pt.x + tileSize / 2,
             y: tileSize * pt.y + 11,
@@ -243,7 +246,8 @@
         );
 
         undefined !== txtBL &&
-          this.text(
+          GameUtils.text(
+            ctx,
             {
               x: tileSize * pt.x + 3,
               y: tileSize * pt.y + tileSize - 6,
@@ -258,7 +262,8 @@
           );
 
         undefined !== txtBR &&
-          this.text(
+          GameUtils.text(
+            ctx,
             {
               x: tileSize * pt.x + tileSize - 3,
               y: tileSize * pt.y + tileSize - 6,
@@ -272,7 +277,8 @@
             }
           );
 
-        this.rect(
+        GameUtils.rect(
+          ctx,
           { x: tileSize * pt.x, y: tileSize * pt.y },
           tileSize,
           tileSize,

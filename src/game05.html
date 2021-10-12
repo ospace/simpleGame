@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>game05</title>
+    <style>
+      button.active {
+        background-color: #ccc;
+      }
+
+      canvas {
+        border: 1px solid black;
+      }
+
+      #canvas1 {
+        position: relative;
+      }
+    </style>
+  </head>
+
+  <body>
+    <p>
+      <canvas id="canvas1" width="510" height="300"></canvas>
+    </p>
+    <script src="engine.js"></script>
+    <script src="util.js"></script>
+    <script language="JavaScript">
+      var canon = {
+        created: function (ctx) {
+          Object.assign(this, ctx);
+        },
+        beforeUpdate: function (dt) {},
+        updated: function (ctx) {
+          GameUtils.circle(ctx, this.pt, 10);
+        },
+      };
+
+      GameWorld.Entity("Canon", canon);
+
+      function startup() {
+        let canon = new GameWorld.Entity.Canon({
+          pt: { x: GameWorld.width >> 1, y: GameWorld.height >> 1 },
+        });
+      }
+
+      window.addEventListener("load", function () {
+        GameWorld.initialize("canvas1", startup);
+      });
+    </script>
+  </body>
+</html>
