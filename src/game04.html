@@ -97,199 +97,199 @@
       var source = { x: 0, y: 4 };
       var target = { x: 16, y: 5 };
 
-      var wall = GameWorld.newObject();
-      wall.setup = function (dt) {
-        this.ptnWall = [
-          GameWorld.createPattern(5, 2, 3, "lightgray", "gray"),
-          GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
-        ];
-      };
-      wall.draw = function (ctx) {
-        for (var i = 0; i < wallMeta.length; ++i) {
-          for (var j = 0; j < wallMeta[i].length; ++j) {
-            this.drawWall(ctx, j, i, wallMeta[i][j]);
+      GameWorld.Entity("Wall", {
+        beforeUpdate: function (dt) {
+          this.ptnWall = [
+            GameWorld.createPattern(5, 2, 3, "lightgray", "gray"),
+            GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
+          ];
+        },
+        updated: function (ctx) {
+          for (var i = 0; i < wallMeta.length; ++i) {
+            for (var j = 0; j < wallMeta[i].length; ++j) {
+              this.drawWall(ctx, j, i, wallMeta[i][j]);
+            }
           }
-        }
-      };
-      wall.drawWall = function (ctx, x, y, type) {
-        if (!type) return;
-        GameUtils.fillRect(
-          ctx,
-          { x: x * tileSize, y: y * tileSize },
-          tileSize,
-          tileSize,
-          {
-            fillStyle: this.ptnWall[type - 1],
-          }
-        );
-      };
-
-      var search = GameWorld.newObject();
-
-      search.setup = function () {
-        this.working = new Heap(function (l, r) {
-          return l.f - r.f;
-        });
-        this.visitedIdx = [];
-        this.indes = [];
-        this.done = null;
-        this.sizeX = Math.floor(GameWorld.width / tileSize);
-        this.sizeY = Math.floor(GameWorld.height / tileSize);
-        let n = Object.assign({}, source, {
-          index: this.indexOf(source),
-          g: 0,
-          order: 0,
-          h: Math.abs(source.x - target.x) + Math.abs(source.y - target.y),
-        });
-        n.f = n.g + n.h;
-        this.working.push(n);
-        this.indes[n.index] = n;
-      };
-
-      search.step = function (dt) {
-        if (this.working.empty()) return;
-        var self = this;
-        // 1.작업목록에서 작은 F인 현재노드 추출
-        let n = this.working.pop();
-        if (this.visitedIdx[n.index]) return;
-
-        this.visitedIdx[n.index] = true;
-        if (n.x === target.x && n.y === target.y) {
-          this.working.clear();
-          this.done = n;
-          return;
-        }
-        // 2. 현재노드에서 상하좌우노드 추출
-        let list = [
-          { x: n.x + 1, y: n.y },
-          { x: n.x - 1, y: n.y },
-          { x: n.x, y: n.y + 1 },
-          { x: n.x, y: n.y - 1 },
-        ];
-        // 3. 추출노드 유효성 체크
-        list = list.filter(function (each) {
-          return (
-            0 <= each.x &&
-            0 <= each.y &&
-            each.x < self.sizeX &&
-            each.y < self.sizeY
+        },
+        drawWall: function (ctx, x, y, type) {
+          if (!type) return;
+          GameUtils.fillRect(
+            ctx,
+            { x: x * tileSize, y: y * tileSize },
+            tileSize,
+            tileSize,
+            {
+              fillStyle: this.ptnWall[type - 1],
+            }
           );
-        });
-        // 4. 추출노드 인덱스
-        list.forEach(function (each) {
-          each.index = self.indexOf(each);
-        });
-        // 5. 추출노드 장애물, 방문여부 체크
-        list = list.filter(function (each) {
-          return !wallMeta[each.y][each.x] && !self.visitedIdx[each.index];
-        });
-        // 6. 추출노드 F값 계산
-        // 7. 추출노드에 현재노드를 부모로 설정
-        list.forEach(function (each) {
-          each.h = Math.abs(each.x - target.x) + Math.abs(each.y - target.y);
-          each.g = n.g + 1;
-          each.f = each.h + each.g;
-          each.parent = n;
-          each.order = n.order + 1;
-        });
+        },
+      });
 
-        // 8. 추출노드가 작업목록에 있다면 F값이 작다면 갱신 없다면 추가
-        // 9. 현재노드 방문목록에 추가
-        list.forEach(function (each) {
-          let item = self.indes[each.index];
-          if (!item || item.f > each.f) {
-            self.indes[each.index] = each;
+      GameWorld.Entity("Search", {
+        created: function (ctx) {
+          this.working = new Heap(function (l, r) {
+            return l.f - r.f;
+          });
+          this.visitedIdx = [];
+          this.indes = [];
+          this.done = null;
+          this.sizeX = Math.floor(GameWorld.width / tileSize);
+          this.sizeY = Math.floor(GameWorld.height / tileSize);
+          let n = Object.assign({}, source, {
+            index: this.indexOf(source),
+            g: 0,
+            order: 0,
+            h: Math.abs(source.x - target.x) + Math.abs(source.y - target.y),
+          });
+          n.f = n.g + n.h;
+          this.working.push(n);
+          this.indes[n.index] = n;
+        },
+        beforeUpdate: function (dt) {
+          if (this.working.empty()) return;
+          var self = this;
+          // 1.작업목록에서 작은 F인 현재노드 추출
+          let n = this.working.pop();
+          if (this.visitedIdx[n.index]) return;
+
+          this.visitedIdx[n.index] = true;
+          if (n.x === target.x && n.y === target.y) {
+            this.working.clear();
+            this.done = n;
+            return;
           }
-          self.working.push(each);
-        });
-      };
-
-      search.indexOf = function (pt) {
-        return pt.y * this.sizeX + pt.x;
-      };
-
-      search.draw = function (ctx) {
-        if (this.done) {
-          let n = this.done;
-          do {
-            GameUtils.fillRect(
-              ctx,
-              { x: tileSize * n.x, y: tileSize * n.y },
-              tileSize,
-              tileSize,
-              { fillStyle: "red" }
+          // 2. 현재노드에서 상하좌우노드 추출
+          let list = [
+            { x: n.x + 1, y: n.y },
+            { x: n.x - 1, y: n.y },
+            { x: n.x, y: n.y + 1 },
+            { x: n.x, y: n.y - 1 },
+          ];
+          // 3. 추출노드 유효성 체크
+          list = list.filter(function (each) {
+            return (
+              0 <= each.x &&
+              0 <= each.y &&
+              each.x < self.sizeX &&
+              each.y < self.sizeY
             );
-          } while ((n = n.parent));
-        }
+          });
+          // 4. 추출노드 인덱스
+          list.forEach(function (each) {
+            each.index = self.indexOf(each);
+          });
+          // 5. 추출노드 장애물, 방문여부 체크
+          list = list.filter(function (each) {
+            return !wallMeta[each.y][each.x] && !self.visitedIdx[each.index];
+          });
+          // 6. 추출노드 F값 계산
+          // 7. 추출노드에 현재노드를 부모로 설정
+          list.forEach(function (each) {
+            each.h = Math.abs(each.x - target.x) + Math.abs(each.y - target.y);
+            each.g = n.g + 1;
+            each.f = each.h + each.g;
+            each.parent = n;
+            each.order = n.order + 1;
+          });
 
-        this.indes.forEach(
-          function (each) {
-            this.drawNum(ctx, each, each.index, each.f, each.order);
-          }.bind(this)
-        );
-      };
-
-      search.drawNum = function (ctx, pt, txtCenter, txtBL, txtBR) {
-        GameUtils.text(
-          ctx,
-          {
-            x: tileSize * pt.x + tileSize / 2,
-            y: tileSize * pt.y + 11,
-          },
-          txtCenter,
-          {
-            font: "11px sans-serif",
-            textAlign: "center",
-            textBaseline: "middle",
-            fillStyle: "black",
+          // 8. 추출노드가 작업목록에 있다면 F값이 작다면 갱신 없다면 추가
+          // 9. 현재노드 방문목록에 추가
+          list.forEach(function (each) {
+            let item = self.indes[each.index];
+            if (!item || item.f > each.f) {
+              self.indes[each.index] = each;
+            }
+            self.working.push(each);
+          });
+        },
+        updated: function (ctx) {
+          if (this.done) {
+            let n = this.done;
+            do {
+              GameUtils.fillRect(
+                ctx,
+                { x: tileSize * n.x, y: tileSize * n.y },
+                tileSize,
+                tileSize,
+                { fillStyle: "red" }
+              );
+            } while ((n = n.parent));
           }
-        );
 
-        undefined !== txtBL &&
+          this.indes.forEach(
+            function (each) {
+              this.drawNum(ctx, each, each.index, each.f, each.order);
+            }.bind(this)
+          );
+        },
+        indexOf: function (pt) {
+          return pt.y * this.sizeX + pt.x;
+        },
+        drawNum: function (ctx, pt, txtCenter, txtBL, txtBR) {
           GameUtils.text(
             ctx,
             {
-              x: tileSize * pt.x + 3,
-              y: tileSize * pt.y + tileSize - 6,
+              x: tileSize * pt.x + tileSize / 2,
+              y: tileSize * pt.y + 11,
             },
-            txtBL,
+            txtCenter,
             {
-              font: "9px sans-serif",
-              textAlign: "left",
+              font: "11px sans-serif",
+              textAlign: "center",
               textBaseline: "middle",
               fillStyle: "black",
             }
           );
+          undefined !== txtBL &&
+            GameUtils.text(
+              ctx,
+              {
+                x: tileSize * pt.x + 3,
+                y: tileSize * pt.y + tileSize - 6,
+              },
+              txtBL,
+              {
+                font: "9px sans-serif",
+                textAlign: "left",
+                textBaseline: "middle",
+                fillStyle: "black",
+              }
+            );
 
-        undefined !== txtBR &&
-          GameUtils.text(
+          undefined !== txtBR &&
+            GameUtils.text(
+              ctx,
+              {
+                x: tileSize * pt.x + tileSize - 3,
+                y: tileSize * pt.y + tileSize - 6,
+              },
+              txtBR,
+              {
+                font: "9px sans-serif",
+                textAlign: "right",
+                textBaseline: "middle",
+                fillStyle: "black",
+              }
+            );
+
+          GameUtils.rect(
             ctx,
-            {
-              x: tileSize * pt.x + tileSize - 3,
-              y: tileSize * pt.y + tileSize - 6,
-            },
-            txtBR,
-            {
-              font: "9px sans-serif",
-              textAlign: "right",
-              textBaseline: "middle",
-              fillStyle: "black",
-            }
+            { x: tileSize * pt.x, y: tileSize * pt.y },
+            tileSize,
+            tileSize,
+            { strokeStyle: "black" }
           );
+        },
+        f: function (pt) {},
+      });
 
-        GameUtils.rect(
-          ctx,
-          { x: tileSize * pt.x, y: tileSize * pt.y },
-          tileSize,
-          tileSize,
-          { strokeStyle: "black" }
-        );
-      };
-
-      search.f = function (pt) {};
+      function startup() {
+        new GameWorld.Entity.Wall();
+        new GameWorld.Entity.Search();
+      }
 
       window.addEventListener("load", function () {
-        GameWorld.initialize("canvas1");
+        GameWorld.initialize("canvas1", startup);
       });
     </script>
   </body>

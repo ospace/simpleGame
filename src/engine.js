@@ -54,7 +54,7 @@
                 var layer = this.data[i];
                 if (!layer || 0 === layer.length) continue;
                 var idx = layer.indexOf(obj);
-                if (!idx) {
+                if (~idx) {
                     layer.splice(idx, 1);
                     break;
                 }
@@ -85,9 +85,7 @@
         updated(ctx) {
         },
         delete: function() {
-            this.deleted || console.log('> delete:', this);
-            this.deleted || GameWorld.delete(this);
-            this.deleted = true;
+            GameWorld.delete(this);
         },
     };
     function dist(p0, p1, p2) {
@@ -145,7 +143,6 @@
         },
         delete: function(obj) {
             if (~removed_.indexOf(obj)) return false;
-            // console.log('> delete:', obj, removed_.indexOf(obj));
             removed_.push(obj);
             return true;
         },

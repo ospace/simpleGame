@@ -41,181 +41,181 @@
       var source = { x: 0, y: 4 };
       var target = { x: 16, y: 5 };
 
-      var wall = GameWorld.newObject();
-      wall.setup = function (dt) {
-        this.ptnWall = [
-          GameWorld.createPattern(5, 2, 3, "lightgray", "gray"),
-          GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
-        ];
-      };
-      wall.draw = function (ctx) {
-        for (var i = 0; i < wallMeta.length; ++i) {
-          for (var j = 0; j < wallMeta[i].length; ++j) {
-            this.drawWall(ctx, j, i, wallMeta[i][j]);
+      GameWorld.Entity("Wall", {
+        beforeUpdate: function (dt) {
+          this.ptnWall = [
+            GameWorld.createPattern(5, 2, 3, "lightgray", "gray"),
+            GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
+          ];
+        },
+        updated: function (ctx) {
+          for (var i = 0; i < wallMeta.length; ++i) {
+            for (var j = 0; j < wallMeta[i].length; ++j) {
+              this.drawWall(ctx, j, i, wallMeta[i][j]);
+            }
           }
-        }
-      };
-      wall.drawWall = function (ctx, x, y, type) {
-        if (!type) return;
-        GameUtils.fillRect(
-          ctx,
-          { x: x * tileSize, y: y * tileSize },
-          tileSize,
-          tileSize,
-          {
-            fillStyle: this.ptnWall[type - 1],
-          }
-        );
-      };
+        },
+        drawWall: function (ctx, x, y, type) {
+          if (!type) return;
+          GameUtils.fillRect(
+            ctx,
+            { x: x * tileSize, y: y * tileSize },
+            tileSize,
+            tileSize,
+            {
+              fillStyle: this.ptnWall[type - 1],
+            }
+          );
+        },
+      });
 
-      var search = GameWorld.newObject();
-
-      search.setup = function () {
-        this.working = [];
-        this.visitedIdx = [];
-        this.indes = [];
-        this.done = null;
-        this.sizeX = Math.floor(GameWorld.width / tileSize);
-        this.sizeY = Math.floor(GameWorld.height / tileSize);
-        let n = Object.assign({}, source, {
-          index: this.indexOf(source),
-          g: 0,
-          order: 0,
-          h: Math.abs(source.x - target.x) + Math.abs(source.y - target.y),
-        });
-        n.f = n.g + n.h;
-        this.working.push(n);
-        this.indes[n.index] = n;
-      };
-
-      search.step = function (dt) {
-        if (!this.working.length) return;
-        var self = this;
-        var n = this.working.shift();
-        if (n.x === target.x && n.y === target.y) {
+      GameWorld.Entity("Search", {
+        created: function (ctx) {
           this.working = [];
-          this.done = n;
-          return;
-        }
-        var list = [
-          { x: n.x + 1, y: n.y },
-          { x: n.x - 1, y: n.y },
-          { x: n.x, y: n.y + 1 },
-          { x: n.x, y: n.y - 1 },
-        ];
-        list = list.filter(function (each) {
-          return (
-            0 <= each.x &&
-            0 <= each.y &&
-            each.x < self.sizeX &&
-            each.y < self.sizeY
-          );
-        });
-        list.forEach(function (each) {
-          each.index = self.indexOf(each);
-        });
-        list = list
-          .filter(function (each) {
-            return !self.indes[each.index];
-          })
-          .filter(function (each) {
-            return !wallMeta[each.y][each.x];
+          this.visitedIdx = [];
+          this.indes = [];
+          this.done = null;
+          this.sizeX = Math.floor(GameWorld.width / tileSize);
+          this.sizeY = Math.floor(GameWorld.height / tileSize);
+          let n = Object.assign({}, source, {
+            index: this.indexOf(source),
+            g: 0,
+            order: 0,
+            h: Math.abs(source.x - target.x) + Math.abs(source.y - target.y),
           });
-        let order = ++n.order;
-        list.forEach(function (each) {
-          each.order = order;
-          each.parent = n;
-          self.working.push(each);
-          self.indes[each.index] = each;
-        });
-      };
-
-      search.indexOf = function (pt) {
-        return pt.y * this.sizeX + pt.x;
-      };
-
-      search.draw = function (ctx) {
-        if (this.done) {
-          let n = this.done;
-          do {
-            GameUtils.fillRect(
-              ctx,
-              { x: tileSize * n.x, y: tileSize * n.y },
-              tileSize,
-              tileSize,
-              { fillStyle: "red" }
-            );
-          } while ((n = n.parent));
-        }
-
-        this.indes.forEach(
-          function (each) {
-            this.drawNum(ctx, each, each.index, "", each.order);
-          }.bind(this)
-        );
-      };
-
-      search.drawNum = function (ctx, pt, txtCenter, txtBL, txtBR) {
-        GameUtils.text(
-          ctx,
-          {
-            x: tileSize * pt.x + tileSize / 2,
-            y: tileSize * pt.y + 11,
-          },
-          txtCenter,
-          {
-            font: "11px sans-serif",
-            textAlign: "center",
-            textBaseline: "middle",
-            fillStyle: "black",
+          n.f = n.g + n.h;
+          this.working.push(n);
+          this.indes[n.index] = n;
+        },
+        beforeUpdate: function (dt) {
+          if (!this.working.length) return;
+          var self = this;
+          var n = this.working.shift();
+          if (n.x === target.x && n.y === target.y) {
+            this.working = [];
+            this.done = n;
+            return;
           }
-        );
+          var list = [
+            { x: n.x + 1, y: n.y },
+            { x: n.x - 1, y: n.y },
+            { x: n.x, y: n.y + 1 },
+            { x: n.x, y: n.y - 1 },
+          ];
+          list = list.filter(function (each) {
+            return (
+              0 <= each.x &&
+              0 <= each.y &&
+              each.x < self.sizeX &&
+              each.y < self.sizeY
+            );
+          });
+          list.forEach(function (each) {
+            each.index = self.indexOf(each);
+          });
+          list = list
+            .filter(function (each) {
+              return !self.indes[each.index];
+            })
+            .filter(function (each) {
+              return !wallMeta[each.y][each.x];
+            });
+          let order = ++n.order;
+          list.forEach(function (each) {
+            each.order = order;
+            each.parent = n;
+            self.working.push(each);
+            self.indes[each.index] = each;
+          });
+        },
+        updated: function (ctx) {
+          if (this.done) {
+            let n = this.done;
+            do {
+              GameUtils.fillRect(
+                ctx,
+                { x: tileSize * n.x, y: tileSize * n.y },
+                tileSize,
+                tileSize,
+                { fillStyle: "red" }
+              );
+            } while ((n = n.parent));
+          }
 
-        undefined !== txtBL &&
+          this.indes.forEach(
+            function (each) {
+              this.drawNum(ctx, each, each.index, "", each.order);
+            }.bind(this)
+          );
+        },
+        indexOf: function (pt) {
+          return pt.y * this.sizeX + pt.x;
+        },
+        drawNum: function (ctx, pt, txtCenter, txtBL, txtBR) {
           GameUtils.text(
             ctx,
             {
-              x: tileSize * pt.x + 3,
-              y: tileSize * pt.y + tileSize - 6,
+              x: tileSize * pt.x + tileSize / 2,
+              y: tileSize * pt.y + 11,
             },
-            txtBL,
+            txtCenter,
             {
-              font: "9px sans-serif",
-              textAlign: "left",
+              font: "11px sans-serif",
+              textAlign: "center",
               textBaseline: "middle",
               fillStyle: "black",
             }
           );
+          undefined !== txtBL &&
+            GameUtils.text(
+              ctx,
+              {
+                x: tileSize * pt.x + 3,
+                y: tileSize * pt.y + tileSize - 6,
+              },
+              txtBL,
+              {
+                font: "9px sans-serif",
+                textAlign: "left",
+                textBaseline: "middle",
+                fillStyle: "black",
+              }
+            );
 
-        undefined !== txtBR &&
-          GameUtils.text(
+          undefined !== txtBR &&
+            GameUtils.text(
+              ctx,
+              {
+                x: tileSize * pt.x + tileSize - 3,
+                y: tileSize * pt.y + tileSize - 6,
+              },
+              txtBR,
+              {
+                font: "9px sans-serif",
+                textAlign: "right",
+                textBaseline: "middle",
+                fillStyle: "black",
+              }
+            );
+
+          GameUtils.rect(
             ctx,
-            {
-              x: tileSize * pt.x + tileSize - 3,
-              y: tileSize * pt.y + tileSize - 6,
-            },
-            txtBR,
-            {
-              font: "9px sans-serif",
-              textAlign: "right",
-              textBaseline: "middle",
-              fillStyle: "black",
-            }
+            { x: tileSize * pt.x, y: tileSize * pt.y },
+            tileSize,
+            tileSize,
+            { strokeStyle: "black" }
           );
+        },
+        f: function (pt) {},
+      });
 
-        GameUtils.rect(
-          ctx,
-          { x: tileSize * pt.x, y: tileSize * pt.y },
-          tileSize,
-          tileSize,
-          { strokeStyle: "black" }
-        );
-      };
-
-      search.f = function (pt) {};
+      function startup() {
+        new GameWorld.Entity.Wall();
+        new GameWorld.Entity.Search();
+      }
 
       window.addEventListener("load", function () {
-        GameWorld.initialize("canvas1");
+        GameWorld.initialize("canvas1", startup);
       });
     </script>
   </body>

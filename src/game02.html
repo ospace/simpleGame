@@ -115,9 +115,10 @@
       GameWorld.Entity("Emermy", {
         created: function (ctx) {
           this.point = ctx.point;
+          this.life = 3;
         },
         beforeUpdate: function (dt) {
-          // this.point.x += 100 * dt;
+          this.point.x += 100 * dt;
           if (this.point.x > GameWorld.width - 20) {
             this.destroyEnermy();
           }
@@ -127,11 +128,12 @@
         },
         destroyEnermy: function () {
           let idx = enemies.indexOf(this);
-          console.log("> destroyEnermy:", idx);
           ~idx && enemies.splice(idx, 1);
           this.delete();
         },
         hit: function () {
+          if (0 < --this.life) return;
+
           new GameWorld.Entity.Explosion({
             point: Object.assign({}, this.point),
           });
@@ -187,7 +189,7 @@
             let ret = new GameWorld.Entity.Emermy({ point: { x: 50, y: 80 } });
             enemies.push(ret);
             //if (0 < --cnt) createEmermy();
-            //createEmermy();
+            createEmermy();
           }, 1000);
         }
         createEmermy();
