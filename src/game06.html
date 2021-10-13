@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>game06</title>
+    <style>
+      button.active {
+        background-color: #ccc;
+      }
+      canvas {
+        border: 1px solid black;
+      }
+      #canvas1 {
+        position: relative;
+      }
+    </style>
+  </head>
+  <body>
+    <p>
+      <canvas id="canvas1" width="510" height="300"></canvas>
+    </p>
+    <script src="engine.js"></script>
+    <script src="util.js"></script>
+    <script language="JavaScript">
+      var pointer = { x: 0, y: 0 };
+      var selectIdx = -1;
+
+      GameWorld.Entity("Enermy", {
+        size: 14,
+        created: function (ctx) {
+          Object.assign(this, ctx);
+        },
+        beforeUpdate: function (dt) {},
+        updated: function (ctx) {
+          // GameUtils.rect(
+          //   ctx,
+          //   { x: this.pt.x - this.size / 2, y: this.pt.y - this.size / 2 },
+          //   this.size,
+          //   this.size,
+          //   { fillStyle: "red" }
+          // );
+          GameUtils.diamond(ctx, this.pt, this.size, this.size, {
+            fillStyle: "red",
+          });
+        },
+      });
+
+      var grid = 30;
+      function applyGrid(val) {
+        return Math.floor(val / grid) * grid + grid / 2;
+      }
+      function startup() {
+        GameWorld.on("mousemove", function (ev) {
+          pointer = { x: ev.offsetX, y: ev.offsetY };
+        });
+        GameWorld.on("mousedown", function (ev) {
+          // var pt = { x: ev.offsetX, y: ev.offsetY };
+        });
+        new GameWorld.Entity.Enermy({
+          pt: { x: 15, y: 15 },
+        });
+      }
+      window.addEventListener("load", function () {
+        GameWorld.initialize("canvas1", startup);
+      });
+    </script>
+  </body>
+</html>

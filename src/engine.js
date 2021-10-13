@@ -1,7 +1,7 @@
 (function umd(root, factory) {
     root.GameWorld = factory(window, document);
 }(this, function(w, d) {
-    var lastTime = 0;
+    var lastTime_ = new Date().getTime();
     var vendors = ['ms', 'moz', 'webkit', 'o'];
     for(var x = 0; x < vendors.length && !w.requestAnimationFrame; ++x) {
         w.requestAnimationFrame = w[vendors[x]+'RequestAnimationFrame'];
@@ -11,77 +11,70 @@
  
     w.requestAnimationFrame = w.requestAnimationFrame || function(callback, element) {
         var currTime = new Date().getTime();
-        var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+        var timeToCall = Math.max(0, 16 - (currTime - lastTime_));
         var id = w.setTimeout(function() { callback(currTime + timeToCall); }, 
             timeToCall);
-        lastTime = currTime + timeToCall;
+            lastTime_ = currTime + timeToCall;
         return id;
     }
  
     w.cancelAnimationFrame = w.cancelAnimationFrame || function(id) {
         clearTimeout(id);
     };
-
-    var canvas = null;
-    var ctx = null;
-    let removed = [];
-    var layers = [[]];
-    var lastLayer = 0;
-    var lastId = 0;
-    var lastTime = new Date().getTime();
-    var maxTime = 1/30;
-  
-    function render() { 
-        var curTime = new Date().getTime();
-        requestAnimationFrame(render);
-        var dt = (curTime - lastTime)/1000;
-        if(dt > maxTime) { dt = maxTime; }
-
-        GameWorld.clean();
-        eachAction('step', dt);
-        GameWorld.finally();
-        eachAction('draw', ctx);
-        lastTime = curTime;
-    }
-
-    function eachAction(funcName, param) {
-        for(var i = 0, n = layers.length; i < n; ++i) {
-            var layer = layers[i];
-            if (!layer) continue;
-            for(var j = 0, m = layer.length; j < m; ++j) {
-                layer[j][funcName](param);
+    var canvas_ = null;
+    var ctx_ = null;
+    let removed_ = [];
+    var lastId_ = 0;
+    var layers_ = {
+        data: [],
+        last: 0,
+        push: function(idx, obj) {
+            if ('number' !== typeof idx) {
+                obj = idx;
+                idx = this.last;
+            }
+            var layer = this.data[idx];
+            if (!layer) {
+                this.data[idx] = layer = [];
+            }
+            layer.push(obj);
+            return idx;
+        },
+        action: function(funcName, param) {
+            for(var i = 0, n = this.data.length; i < n; ++i) {
+                var each = this.data[i];
+                if (!each) continue;
+                for(var j = 0, m = each.length; j < m; ++j) {
+                    each[j][funcName](param);
+                }
+            }
+        },
+        remove: function(obj) {
+            for(var i=0, n=this.data.length; i < n; ++i) {
+                var layer = this.data[i];
+                if (!layer || 0 === layer.length) continue;
+                var idx = layer.indexOf(obj);
+                if (!idx) {
+                    layer.splice(idx, 1);
+                    break;
+                }
             }
         }
     }
-
-    function pushLayer(idx, obj) {
-        var layer = layers[idx];
-        if (!layer) {
-            layers[idx] = layer = [];
-        }
-        layer.push(obj);
+    var maxTime_ = 1/30;
+    var lastRenderTime_ = new Date().getTime();
+    function render() { 
+        var curTime = new Date().getTime();
+        requestAnimationFrame(render);
+        var dt = (curTime - lastRenderTime_)/1000;
+        if(dt > maxTime_) { dt = maxTime_; }
+        GameWorld.clean();
+        layers_.action('beforeUpdate', dt);
+        GameWorld.finally();
+        layers_.action('updated', ctx_);
+        lastRenderTime_ = curTime;
     }
-
-    function GameObject(pt, w, h, opts) { 
-        this.point = pt || {x: GameWorld.width >> 1, y: GameWorld.height >> 1};
-        this.point.x += 0.5;
-        this.point.y += 0.5;
-        this.width = w || 10;
-        this.height = h || 10;
-        this.options = opts;
-    }
-
-    Object.assign(GameObject.prototype, {
-        setup: function() {},
-        draw: function(ctx) {
-            GameUtils.rect(ctx, this.point, this.width, this.height);
-        },
-        step: function(dt) {},
-        delete: function() {
-            GameWorld.delete(this);
-        }
-    });
-
+    
     var entityProto = {
         created(ctx) {
         },
@@ -92,13 +85,11 @@
         updated(ctx) {
         },
         delete: function() {
-            GameWorld.delete(this);
+            this.deleted || console.log('> delete:', this);
+            this.deleted || GameWorld.delete(this);
+            this.deleted = true;
         },
-        setup: function(ctx) { this.created(ctx); },
-        draw: function(ctx) { this.updated(ctx); },
-        step: function(dt) { this.beforeUpdate(dt); },
     };
-
     function dist(p0, p1, p2) {
         var a = p2.y - p1.y;
         var b = p1.x - p2.x;
@@ -107,41 +98,32 @@
             Math.sqrt(a * a + b * b)
         );
     }
-
     // # http://cykod.github.com/AlienInvasion/
     function overlap(o1,o2) {
         return !((o1.y+o1.h-1<o2.y) || (o1.y>o2.y+o2.h-1) ||
                  (o1.x+o1.w-1<o2.x) || (o1.x>o2.x+o2.w-1));
     };
-
-    function onMouseDown(ev) {
-
-    }
-
-    function onMouseUp(ev) {
-        this.emit('point', {x: ev.offsetX, y:ev.offsetY});
-    }
-
-    function onMouseMove(ev) {
-        
-    }
-
+    // function onMouseDown(ev) {
+    // }
+    // function onMouseUp(ev) {
+    //     this.emit('point', {x: ev.offsetX, y:ev.offsetY});
+    // }
+    // function onMouseMove(ev) {
+    // }
     return {
         initialize: function(canvasId, startup) {
-            if (canvas) return;
-            canvas = d.getElementById(canvasId);
-            if (!canvas) return alert('Cannot found canvas');
-            canvas.addEventListener("mousedown", onMouseDown);
-            canvas.addEventListener("mouseup", onMouseUp);
-            canvas.addEventListener("mousemove", onMouseMove);
-
-            this.width = canvas.width;
-            this.height= canvas.height;
-            ctx = canvas.getContext && canvas.getContext('2d');
-
-            eachAction('setup');
+            if (canvas_) return;
+            canvas_ = d.getElementById(canvasId);
+            if (!canvas_) return alert('Cannot found canvas');
+            // canvas.addEventListener("mousedown", onMouseDown);
+            // canvas.addEventListener("mouseup", onMouseUp);
+            // canvas.addEventListener("mousemove", onMouseMove);
+            this.width = canvas_.width;
+            this.height= canvas_.height;
+            ctx_ = canvas_.getContext && canvas_.getContext('2d');
+            // eachAction('setup');
+            layers_.action('setup');
             render();
-            
             'function' === typeof startup && startup();
         },
         Entity: function(id, proto) {
@@ -149,47 +131,30 @@
             this.Entity[id] = function(ctx) {
                 Object.setPrototypeOf(this, proto);
                 this.super = entityProto;
-                this.layer_ = ctx.layer || lastLayer;
-                this.id_ = ++lastId;
-                pushLayer(this.layer_, this);
+                this.layer_ = layers_.push(this);
+                this.id_ = ++lastId_;
                 this.created(ctx);
             }
         },
-        newObject(pt, w, h, opt) {
-            //if (!ctx) return null;
-            var ret = new GameObject(pt, w, h, opt);
-            ret.idx = ++lastId;
-            ret.layer = lastLayer;
-            let layer = layers[lastLayer];
-            if (!layer) {
-                layers[lastLayer] = layer = [];
-            }
-            layer.push(ret);
-
-            return ret;
-        },
         clean: function() {
-            if (!ctx) return;
-            ctx.save();
-            ctx.setTransform(1, 0, 0, 1, 0, 0)
-            ctx.clearRect(0, 0, GameWorld.width, GameWorld.height);
-            ctx.restore();
+            if (!ctx_) return;
+            ctx_.save();
+            ctx_.setTransform(1, 0, 0, 1, 0, 0)
+            ctx_.clearRect(0, 0, GameWorld.width, GameWorld.height);
+            ctx_.restore();
         },
         delete: function(obj) {
-            if (~removed.indexOf(obj)) return false;
-            removed.push(obj);
+            if (~removed_.indexOf(obj)) return false;
+            // console.log('> delete:', obj, removed_.indexOf(obj));
+            removed_.push(obj);
             return true;
         },
         finally: function() {
-            removed.forEach(each=>{
-                var idx = layers.indexOf(each);
-                ~idx && layers.splice(idx, 1);
-            });
-            removed = [];
+            removed_.forEach(each=>layers_.remove(each));
+            removed_ = [];
         },
         createPattern: function (size, lines, type, lineColor1, lineColor2) {
-            if (!ctx) return null;
-
+            if (!ctx_) return null;
             size = size || 50;
             lines = lines || 10;
             type = type || 1;
@@ -236,16 +201,16 @@
                 patternContext.stroke();
             }
     
-            return ctx.createPattern(patternCanvas, "repeat");
+            return ctx_.createPattern(patternCanvas, "repeat");
         },
         on: function(eventId, handler) {
-            canvas.addEventListener(eventId, handler);
+            canvas_.addEventListener(eventId, handler);
         },
         off: function(eventId, handler) {
-            canvas.removeEventListener(eventId, handler);
+            canvas_.removeEventListener(eventId, handler);
         },
         emit: function(eventId, detail) {
-            canvas.eventDispatch(new CustomEvent(eventId, { detail: detail }));
+            canvas_.eventDispatch(new CustomEvent(eventId, { detail: detail }));
         }
     }
 }));

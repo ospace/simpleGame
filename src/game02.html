@@ -23,6 +23,8 @@
       <br />
       <canvas id="canvas1" width="500" height="300"></canvas>
     </p>
+    <script src="engine.js"></script>
+    <script src="util.js"></script>
     <script language="JavaScript">
       var enemies = [];
       var allies = [];
@@ -30,15 +32,123 @@
 
       var onShoot;
 
-      window.addEventListener("load", function () {
-        GameWorld.initialize("canvas1");
-        var ally = GameWorld.newObject();
-        ally.draw = function (ctx) {
+      GameWorld.Entity("Ally", {
+        created: function (ctx) {
+          this.point = ctx.point;
+        },
+        updated: function (ctx) {
           GameUtils.circle(ctx, this.point, 5);
-        };
-        ally.fire = function (target) {
-          target.hit();
-        };
+        },
+        fire: function (target) {
+          target && target.hit();
+        },
+      });
+
+      GameWorld.Entity("TrackingMissile", {
+        created: function (ctx) {
+          this.point = ctx.point;
+        },
+        beforeUpdate: function (dt) {
+          if (!enemies.length) {
+            return this.delete();
+          }
+
+          let enermy = enemies[0];
+          let q = Math.atan2(
+            enermy.point.y - this.point.y,
+            enermy.point.x - this.point.x
+          );
+          this.point = this.via || this.point;
+          this.via = {
+            x: this.point.x + 3 * Math.cos(q),
+            y: this.point.y + 3 * Math.sin(q),
+          };
+
+          if (enermy.collide(this.via)) {
+            enermy.hit();
+            this.delete();
+          }
+        },
+        updated: function (ctx) {
+          if (!this.via) return;
+          GameUtils.line(ctx, this.point, this.via);
+        },
+      });
+
+      GameWorld.Entity("Shoot", {
+        created: function (ctx) {
+          this.point = ctx.point;
+          this.target = ctx.target;
+          this.source = ctx.source;
+        },
+        beforeUpdate: function (dt) {
+          this.beginDt = this.beginDt ? this.beginDt + dt : dt;
+          if (0.2 < this.beginDt) {
+            this.source.fire(this.target);
+            this.delete();
+          }
+        },
+        updated: function (ctx) {
+          this.line(this.point, this.target.point);
+        },
+      });
+
+      GameWorld.Entity("Explosion", {
+        created: function (ctx) {
+          this.point = ctx.point;
+          this.beginDt = 0;
+        },
+        beforeUpdate: function (dt) {
+          this.beginDt += dt;
+          if (1 < this.beginDt) this.delete();
+        },
+        updated: function (ctx) {
+          GameUtils.text(ctx, this.point, "펑", {
+            font: "9px",
+            textAlign: "center",
+            textBaseline: "middle",
+          });
+          GameUtils.circle(ctx, this.point, 7);
+        },
+      });
+
+      GameWorld.Entity("Emermy", {
+        created: function (ctx) {
+          this.point = ctx.point;
+        },
+        beforeUpdate: function (dt) {
+          // this.point.x += 100 * dt;
+          if (this.point.x > GameWorld.width - 20) {
+            this.destroyEnermy();
+          }
+        },
+        updated: function (ctx) {
+          GameUtils.circle(ctx, this.point, 5, { fillStyle: "red" });
+        },
+        destroyEnermy: function () {
+          let idx = enemies.indexOf(this);
+          console.log("> destroyEnermy:", idx);
+          ~idx && enemies.splice(idx, 1);
+          this.delete();
+        },
+        hit: function () {
+          new GameWorld.Entity.Explosion({
+            point: Object.assign({}, this.point),
+          });
+          this.destroyEnermy();
+        },
+        collide: function (pt) {
+          return (
+            25 >
+            Math.pow(this.point.x - pt.x, 2) + Math.pow(this.point.y - pt.y, 2)
+          );
+        },
+      });
+
+      function startup() {
+        var ally = new GameWorld.Entity.Ally({
+          point: { x: GameWorld.width >> 1, y: GameWorld.height >> 1 },
+        });
         allies.push(ally);
 
         // setInterval(() => {
@@ -57,112 +167,35 @@
         };
 
         function createShoot(source, target) {
-          var ret = GameWorld.newObject(source.point);
-          ret.draw = function (ctx) {
-            this.line(this.point, target.point);
-          };
-          ret.step = function (dt) {
-            this.beginDt = this.beginDt ? this.beginDt + dt : dt;
-            if (0.2 < this.beginDt) {
-              source.fire(target);
-              this.delete();
-            }
-          };
+          var ret = new GameWorld.Entity.Shoot({
+            point: Object.assign({}, source.point),
+            source,
+            target,
+          });
           return ret;
         }
 
         function createTrackingMissile(player) {
-          var ret = GameWorld.newObject(Object.assign({}, player.point));
-          ret.draw = function (ctx) {
-            if (!this.via) return;
-            this.line(this.point, this.via);
-          };
-
-          ret.step = function (dt) {
-            if (!enemies.length) {
-              return this.delete();
-            }
-
-            let enermy = enemies[0];
-            let q = Math.atan2(
-              enermy.point.y - this.point.y,
-              enermy.point.x - this.point.x
-            );
-            this.point = this.via || this.point;
-            this.via = {
-              x: this.point.x + 3 * Math.cos(q),
-              y: this.point.y + 3 * Math.sin(q),
-            };
-
-            if (enermy.collide(this.via)) {
-              enermy.hit();
-              this.delete();
-            }
-          };
-
+          var ret = new GameWorld.Entity.TrackingMissile({
+            point: Object.assign({}, player.point),
+          });
           return ret;
-        }
-
-        function createExplosion(obj) {
-          var txt = GameWorld.newObject(obj.point);
-          txt.draw = function (ctx) {
-            this.text(this.point, "펑", {
-              font: "9px",
-              textAlign: "center",
-              textBaseline: "middle",
-            });
-            GameUtils.circle(ctx, this.point, 7);
-          };
-
-          txt.step = function (dt) {
-            this.beginDt = this.beginDt ? this.beginDt + dt : dt;
-            if (1 < this.beginDt) this.delete();
-          };
-
-          return txt;
         }
 
         function createEmermy() {
           setTimeout(() => {
-            let ret = GameWorld.newObject({ x: 50, y: 80 });
-
-            ret.draw = function (ctx) {
-              GameUtils.circle(ctx, this.point, 5, { fillStyle: "red" });
-            };
-            ret.step = function (dt) {
-              this.point.x += 100 * dt;
-              if (this.point.x > GameWorld.width - 20) {
-                this.destroyEnemy();
-              }
-            };
-            ret.destroyEnemy = function () {
-              let idx = enemies.indexOf(this);
-              ~idx && enemies.splice(this, 1);
-              this.delete();
-            };
-
-            ret.hit = function () {
-              createExplosion(this);
-              this.destroyEnemy();
-            };
-
-            ret.collide = function (pt) {
-              return (
-                25 >
-                Math.pow(this.point.x - pt.x, 2) +
-                  Math.pow(this.point.y - pt.y, 2)
-              );
-            };
-
+            let ret = new GameWorld.Entity.Emermy({ point: { x: 50, y: 80 } });
             enemies.push(ret);
             //if (0 < --cnt) createEmermy();
-            createEmermy();
+            //createEmermy();
           }, 1000);
         }
         createEmermy();
+      }
+
+      window.addEventListener("load", function () {
+        GameWorld.initialize("canvas1", startup);
       });
     </script>
-    <script src="engine.js"></script>
-    <script src="util.js"></script>
   </body>
 </html>
