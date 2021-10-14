@@ -108,6 +108,9 @@
     // }
     // function onMouseMove(ev) {
     // }
+
+    function isUndef(obj) { return undefined === obj || null == obj; }
+
     return {
         initialize: function(canvasId, startup) {
             if (canvas_) return;
@@ -124,12 +127,14 @@
             render();
             'function' === typeof startup && startup();
         },
-        Entity: function(id, proto) {
+        Entity: function(id, proto, opts) {
+            opts = opts || {};
             Object.setPrototypeOf(proto, entityProto);
+            var layer = opts.layer;
             this.Entity[id] = function(ctx) {
                 Object.setPrototypeOf(this, proto);
                 this.super = entityProto;
-                this.layer_ = layers_.push(this);
+                this.layer_ = isUndef(layer) ? layers_.push(this) : layers_.push(layer, this);
                 this.id_ = ++lastId_;
                 this.created(ctx);
             }

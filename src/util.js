@@ -7,6 +7,62 @@
         opt.lineDash && ctx.setLineDash(opt.lineDash);
     }
 
+    function Heap(compare) {
+        this.data = [];
+        this.compare =
+          compare ||
+          function (l, r) {
+            return l - r;
+          };
+    }
+
+    Object.assign(Heap.prototype, {
+    push: function (val) {
+        let idx = this.data.length + 1;
+        this.data.push(val);
+        while (1 < idx) {
+        let p = idx >> 1;
+        if (0 >= this.compare(this.data[p - 1], this.data[idx - 1])) break;
+        this.swap(p - 1, idx - 1);
+        idx = p;
+        }
+    },
+    pop: function () {
+        if (this.empty()) return undefined;
+        let ret = this.data[0];
+        let lastIdx = this.data.length - 1;
+        let lastValue = this.data.pop();
+        if (0 < lastIdx) {
+        this.data[0] = lastValue;
+        let id = 1,
+            c = 0;
+        while (id < lastIdx) {
+            c = id << 1;
+            if (c > lastIdx) break;
+            if (c < lastIdx) {
+            c =
+                0 > this.compare(this.data[c - 1], this.data[c]) ? c : c + 1;
+            }
+            if (0 >= this.compare(this.data[id - 1], this.data[c - 1])) break;
+            this.swap(id - 1, c - 1);
+            id = c;
+        }
+        }
+        return ret;
+    },
+    clear: function () {
+        this.data = [];
+    },
+    swap: function (idx0, idx1) {
+        let tmp = this.data[idx0];
+        this.data[idx0] = this.data[idx1];
+        this.data[idx1] = tmp;
+    },
+    empty: function () {
+        return 0 === this.data.length;
+    },
+    });
+
     function rollback(ctx, action) {
         ctx.save();
         action();
@@ -14,6 +70,7 @@
     }
 
     return {
+        Heap: Heap,
         circle: function(ctx, pt, radius, opt) {
             opt = Object.assign({ begin: 0, end: 2, radius: radius || 20, width: 1, lineDash: [], strokeStyle: "#999"}, opt);
             rollback(ctx, function() {

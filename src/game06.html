@@ -6,14 +6,17 @@
       button.active {
         background-color: #ccc;
       }
+
       canvas {
         border: 1px solid black;
       }
+
       #canvas1 {
         position: relative;
       }
     </style>
   </head>
+
   <body>
     <p>
       <canvas id="canvas1" width="510" height="300"></canvas>
@@ -22,32 +25,197 @@
     <script src="util.js"></script>
     <script language="JavaScript">
       var pointer = { x: 0, y: 0 };
+      var tileSize = 30;
       var selectIdx = -1;
 
-      GameWorld.Entity("Enermy", {
-        size: 14,
-        created: function (ctx) {
-          Object.assign(this, ctx);
+      GameWorld.Entity(
+        "Enermy",
+        {
+          size: 14,
+          created: function (ctx) {
+            // Object.assign(this, ctx);
+            var tick = tileSize / 2;
+            this.pt = {
+              x: ctx.pt.x * tileSize + tick,
+              y: ctx.pt.y * tileSize + tick,
+            };
+          },
+          beforeUpdate: function (dt) {
+            if (this.pt.x < 200) {
+              this.pt.x += 100 * dt;
+            }
+          },
+          updated: function (ctx) {
+            // GameUtils.rect(
+            //   ctx,
+            //   { x: this.pt.x - this.size / 2, y: this.pt.y - this.size / 2 },
+            //   this.size,
+            //   this.size,
+            //   { fillStyle: "red" }
+            // );
+            GameUtils.diamond(ctx, this.pt, this.size, this.size, {
+              fillStyle: "red",
+            });
+          },
         },
-        beforeUpdate: function (dt) {},
+        { layer: 1 }
+      );
+
+      var wallMeta = [
+        "11111111111111111",
+        "10000000000000001",
+        "10000000000000001",
+        "10000000000000003",
+        "20000000000000003",
+        "20000000000000003",
+        "10000000000000003",
+        "10000000000000001",
+        "10000000000000001",
+        "11111111111111111",
+      ];
+
+      GameWorld.Entity("Wall", {
+        beforeUpdate: function (dt) {
+          this.ptnWall = [
+            GameWorld.createPattern(5, 2, 3, "lightgray", "gray"),
+            GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
+            GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
+          ];
+        },
         updated: function (ctx) {
-          // GameUtils.rect(
-          //   ctx,
-          //   { x: this.pt.x - this.size / 2, y: this.pt.y - this.size / 2 },
-          //   this.size,
-          //   this.size,
-          //   { fillStyle: "red" }
-          // );
-          GameUtils.diamond(ctx, this.pt, this.size, this.size, {
-            fillStyle: "red",
-          });
+          for (var i = 0; i < wallMeta.length; ++i) {
+            for (var j = 0; j < wallMeta[i].length; ++j) {
+              this.drawWall(ctx, j, i, Number(wallMeta[i].charAt(j)));
+            }
+          }
+        },
+        drawWall: function (ctx, x, y, type) {
+          if (!type) return;
+          var wall = this.ptnWall[type - 1];
+          if (!wall) return;
+          GameUtils.fillRect(
+            ctx,
+            { x: x * tileSize, y: y * tileSize },
+            tileSize,
+            tileSize,
+            {
+              fillStyle: wall,
+            }
+          );
         },
       });
+
+      function searchExit(entry, exits, width, height) {
+        console.log(
+          "0> searchExit:",
+          JSON.stringify(entry),
+          JSON.stringify(exists),
+          width,
+          height
+        );
+        var working = new GameUtils.Heap(function (l, r) {
+          return l.f - r.f;
+        });
+        var visitedIdx = [];
+        var indes = [];
+        var ret;
+
+        function indexOf(pt) {
+          return pt.y * width + pt.x;
+        }
+        function h(pt) {
+          var ret = exists.map(function (it) {
+            return Math.abs(it.x - pt.x) + Math.abs(it.y - pt.y);
+          });
+          return Math.min.apply(null, ret);
+        }
+
+        var existIdxs = exists.map(function (it) {
+          return indexOf(it);
+        });
+
+        let n = Object.assign({}, entry, {
+          index: indexOf(entry),
+          g: 0,
+          order: 0,
+          h: h(entry),
+        });
+
+        working.push(n);
+        while (!working.empty()) {
+          let n = working.pop();
+          console.log("1> searchExit:", n.x, n.y, n.index, existIdxs);
+          if (visitedIdx[n.index]) continue;
+          visitedIdx[n.index] = true;
+
+          if (~existIdxs.indexOf(n.index)) {
+            working.clear();
+            ret = n;
+            break;
+          }
+
+          let list = [
+            { x: n.x + 1, y: n.y },
+            { x: n.x - 1, y: n.y },
+            { x: n.x, y: n.y + 1 },
+            { x: n.x, y: n.y - 1 },
+          ];
+          list.forEach(function (it) {
+            it.index = indexOf(it);
+          });
+
+          console.log("2> searchExit:", JSON.stringify(list));
+
+          list = list
+            .filter(function (it) {
+              return 0 <= it.x && 0 <= it.y && it.x < width && it.y < height;
+            })
+            .filter(function (it) {
+              return (
+                "1" !== wallMeta[it.y].charAt(it.x) && !visitedIdx[it.index]
+              );
+            });
+
+          list.forEach(function (it) {
+            it.h = h(it);
+            it.g = n.g + 1;
+            it.f = it.h + it.g;
+            it.parent = n;
+            it.order = n.order + 1;
+          });
+          list.forEach(function (it) {
+            let item = indes[it.index];
+            if (!item || item.f > it.f) {
+              indes[it.index] = it;
+            }
+            console.log("3> searchExit:", it.x, it.y, it.index);
+            working.push(it);
+          });
+        }
+
+        return ret;
+      }
 
       var grid = 30;
       function applyGrid(val) {
         return Math.floor(val / grid) * grid + grid / 2;
       }
+
+      function findAll(compare) {
+        var ret = [];
+        for (var i = 0; i < wallMeta.length; ++i) {
+          var col = wallMeta[i];
+          for (var j = 0; j < col.length; ++j) {
+            compare(col.charAt(j)) && ret.push({ x: j, y: i });
+          }
+        }
+        return ret;
+      }
+
+      var exists = findAll(function (it) {
+        return it === "3";
+      });
+
       function startup() {
         GameWorld.on("mousemove", function (ev) {
           pointer = { x: ev.offsetX, y: ev.offsetY };
@@ -55,9 +223,18 @@
         GameWorld.on("mousedown", function (ev) {
           // var pt = { x: ev.offsetX, y: ev.offsetY };
         });
+
+        new GameWorld.Entity.Wall();
         new GameWorld.Entity.Enermy({
-          pt: { x: 15, y: 15 },
+          pt: { x: 0, y: 5 },
         });
+        var route = searchExit(
+          { x: 0, y: 5 },
+          exists,
+          Math.floor(GameWorld.width / tileSize),
+          Math.floor(GameWorld.height / tileSize)
+        );
+        console.log("> route:", route);
       }
       window.addEventListener("load", function () {
         GameWorld.initialize("canvas1", startup);
