@@ -1,57 +1,77 @@
 (function umd(root, factory) {
     root.GameWorld = factory(window, document);
 }(this, function(w, d) {
-    var lastTime_ = new Date().getTime();
-    var vendors = ['ms', 'moz', 'webkit', 'o'];
-    for(var x = 0; x < vendors.length && !w.requestAnimationFrame; ++x) {
-        w.requestAnimationFrame = w[vendors[x]+'RequestAnimationFrame'];
-        w.cancelAnimationFrame = 
-          w[vendors[x]+'CancelAnimationFrame'] || w[vendors[x]+'CancelRequestAnimationFrame'];
-    }
- 
-    w.requestAnimationFrame = w.requestAnimationFrame || function(callback, element) {
-        var currTime = new Date().getTime();
-        var timeToCall = Math.max(0, 16 - (currTime - lastTime_));
-        var id = w.setTimeout(function() { callback(currTime + timeToCall); }, 
-            timeToCall);
-            lastTime_ = currTime + timeToCall;
-        return id;
-    }
- 
-    w.cancelAnimationFrame = w.cancelAnimationFrame || function(id) {
-        clearTimeout(id);
-    };
-    var canvas_ = null;
-    var ctx_ = null;
-    let removed_ = [];
-    var lastId_ = 0;
-    var layers_ = {
-        data: [],
-        last: 0,
-        push: function(idx, obj) {
+
+    function Renderer() {
+        var lastTime_ = new Date().getTime();
+        var vendors = ['ms', 'moz', 'webkit', 'o'];
+        for(var x = 0; x < vendors.length && !w.requestAnimationFrame; ++x) {
+            w.requestAnimationFrame = w[vendors[x]+'RequestAnimationFrame'];
+            w.cancelAnimationFrame = 
+            w[vendors[x]+'CancelAnimationFrame'] || w[vendors[x]+'CancelRequestAnimationFrame'];
+        }
+    
+        w.requestAnimationFrame = w.requestAnimationFrame || function(callback, element) {
+            var currTime = new Date().getTime();
+            var timeToCall = Math.max(0, 16 - (currTime - lastTime_));
+            var id = w.setTimeout(function() { callback(currTime + timeToCall); }, 
+                timeToCall);
+                lastTime_ = currTime + timeToCall;
+            return id;
+        }
+    
+        w.cancelAnimationFrame = w.cancelAnimationFrame || function(id) {
+            clearTimeout(id);
+        };
+
+        var self = this;
+        var renderObj_;
+        var maxTime_ = 1/30;
+        var lastRenderTime_ = new Date().getTime();
+        function start() { 
+            var curTime = new Date().getTime();
+            renderObj_ = requestAnimationFrame(start);
+            var dt = (curTime - lastRenderTime_)/1000;
+            if(dt > maxTime_) { dt = maxTime_; }
+            GameWorld.clean();
+            self.action('beforeUpdate', dt);
+            GameWorld.finally();
+            self.action('updated', ctx_);
+            lastRenderTime_ = curTime;
+        };
+        this.start = start;
+        this.stop = function() {
+            if (!renderObj_) return;
+            cancelAnimationFrame(renderObj_);
+            renderObj_ = undefined;
+        }
+
+        var layers_ = [];
+        var lastLayer = 0;
+        this.push = function(idx, obj) {
             if ('number' !== typeof idx) {
                 obj = idx;
-                idx = this.last;
+                idx = lastLayer;
             }
-            var layer = this.data[idx];
+            var layer = layers_[idx];
             if (!layer) {
-                this.data[idx] = layer = [];
+                layers_[idx] = layer = [];
             }
             layer.push(obj);
             return idx;
         },
-        action: function(funcName, param) {
-            for(var i = 0, n = this.data.length; i < n; ++i) {
-                var each = this.data[i];
+        this.action = function(funcName, param) {
+            for(var i = 0, n = layers_.length; i < n; ++i) {
+                var each = layers_[i];
                 if (!each) continue;
                 for(var j = 0, m = each.length; j < m; ++j) {
                     each[j][funcName](param);
                 }
             }
         },
-        remove: function(obj) {
-            for(var i=0, n=this.data.length; i < n; ++i) {
-                var layer = this.data[i];
+        this.remove = function(obj) {
+            for(var i=0, n=layers_.length; i < n; ++i) {
+                var layer = layers_[i];
                 if (!layer || 0 === layer.length) continue;
                 var idx = layer.indexOf(obj);
                 if (~idx) {
@@ -61,19 +81,14 @@
             }
         }
     }
-    var maxTime_ = 1/30;
-    var lastRenderTime_ = new Date().getTime();
-    function render() { 
-        var curTime = new Date().getTime();
-        requestAnimationFrame(render);
-        var dt = (curTime - lastRenderTime_)/1000;
-        if(dt > maxTime_) { dt = maxTime_; }
-        GameWorld.clean();
-        layers_.action('beforeUpdate', dt);
-        GameWorld.finally();
-        layers_.action('updated', ctx_);
-        lastRenderTime_ = curTime;
-    }
+
+    var renderer = new Renderer();
+    
+
+    var canvas_ = null;
+    var ctx_ = null;
+    let removed_ = [];
+    var lastId_ = 0;
     
     var entityProto = {
         created(ctx) {
@@ -88,6 +103,7 @@
             GameWorld.delete(this);
         },
     };
+
     function dist(p0, p1, p2) {
         var a = p2.y - p1.y;
         var b = p1.x - p2.x;
@@ -123,8 +139,8 @@
             this.height= canvas_.height;
             ctx_ = canvas_.getContext && canvas_.getContext('2d');
             // eachAction('setup');
-            layers_.action('setup');
-            render();
+            renderer.action('setup');
+            renderer.start();
             'function' === typeof startup && startup();
         },
         Entity: function(id, proto, opts) {
@@ -134,7 +150,7 @@
             this.Entity[id] = function(ctx) {
                 Object.setPrototypeOf(this, proto);
                 this.super = entityProto;
-                this.layer_ = isUndef(layer) ? layers_.push(this) : layers_.push(layer, this);
+                this.layer_ = isUndef(layer) ? renderer.push(this) : renderer.push(layer, this);
                 this.id_ = ++lastId_;
                 this.created(ctx);
             }
@@ -152,7 +168,7 @@
             return true;
         },
         finally: function() {
-            removed_.forEach(each=>layers_.remove(each));
+            removed_.forEach(each=>renderer.remove(each));
             removed_ = [];
         },
         createPattern: function (size, lines, type, lineColor1, lineColor2) {
