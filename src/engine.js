@@ -34,9 +34,9 @@
             var dt = (curTime - lastRenderTime_)/1000;
             if(dt > maxTime_) { dt = maxTime_; }
             GameWorld.clean();
-            self.action('beforeUpdate', dt);
+            self.action('step', dt);
             GameWorld.finally();
-            self.action('updated', ctx_);
+            self.action('paint', ctx_);
             lastRenderTime_ = curTime;
         };
         this.start = start;
@@ -95,9 +95,12 @@
         },
         destoryed() {
         },
-        beforeUpdate(dt) {
+        step(dt) {
         },
-        updated(ctx) {
+        paint(ctx) {
+        },
+        collide() {
+            return false;
         },
         delete: function() {
             GameWorld.delete(this);

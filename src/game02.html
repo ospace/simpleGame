@@ -36,7 +36,7 @@
         created: function (ctx) {
           this.point = ctx.point;
         },
-        updated: function (ctx) {
+        paint: function (ctx) {
           GameUtils.circle(ctx, this.point, 5);
         },
         fire: function (target) {
@@ -48,7 +48,7 @@
         created: function (ctx) {
           this.point = ctx.point;
         },
-        beforeUpdate: function (dt) {
+        step: function (dt) {
           if (!enemies.length) {
             return this.delete();
           }
@@ -69,7 +69,7 @@
             this.delete();
           }
         },
-        updated: function (ctx) {
+        paint: function (ctx) {
           if (!this.via) return;
           GameUtils.line(ctx, this.point, this.via);
         },
@@ -81,14 +81,14 @@
           this.target = ctx.target;
           this.source = ctx.source;
         },
-        beforeUpdate: function (dt) {
+        step: function (dt) {
           this.beginDt = this.beginDt ? this.beginDt + dt : dt;
           if (0.2 < this.beginDt) {
             this.source.fire(this.target);
             this.delete();
           }
         },
-        updated: function (ctx) {
+        paint: function (ctx) {
           this.line(this.point, this.target.point);
         },
       });
@@ -98,11 +98,11 @@
           this.point = ctx.point;
           this.beginDt = 0;
         },
-        beforeUpdate: function (dt) {
+        step: function (dt) {
           this.beginDt += dt;
           if (1 < this.beginDt) this.delete();
         },
-        updated: function (ctx) {
+        paint: function (ctx) {
           GameUtils.text(ctx, this.point, "펑", {
             font: "9px",
             textAlign: "center",
@@ -117,13 +117,13 @@
           this.point = ctx.point;
           this.life = 3;
         },
-        beforeUpdate: function (dt) {
+        step: function (dt) {
           this.point.x += 100 * dt;
           if (this.point.x > GameWorld.width - 20) {
             this.destroyEnermy();
           }
         },
-        updated: function (ctx) {
+        paint: function (ctx) {
           GameUtils.circle(ctx, this.point, 5, { fillStyle: "red" });
         },
         destroyEnermy: function () {

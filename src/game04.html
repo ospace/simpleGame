@@ -98,13 +98,13 @@
       var target = { x: 16, y: 5 };
 
       GameWorld.Entity("Wall", {
-        beforeUpdate: function (dt) {
+        step: function (dt) {
           this.ptnWall = [
             GameWorld.createPattern(5, 2, 3, "lightgray", "gray"),
             GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
           ];
         },
-        updated: function (ctx) {
+        paint: function (ctx) {
           for (var i = 0; i < wallMeta.length; ++i) {
             for (var j = 0; j < wallMeta[i].length; ++j) {
               this.drawWall(ctx, j, i, wallMeta[i][j]);
@@ -145,7 +145,7 @@
           this.working.push(n);
           this.indes[n.index] = n;
         },
-        beforeUpdate: function (dt) {
+        step: function (dt) {
           if (this.working.empty()) return;
           var self = this;
           // 1.작업목록에서 작은 F인 현재노드 추출
@@ -202,7 +202,7 @@
             self.working.push(each);
           });
         },
-        updated: function (ctx) {
+        paint: function (ctx) {
           if (this.done) {
             let n = this.done;
             do {

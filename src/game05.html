@@ -30,8 +30,8 @@
           Object.assign(this, ctx);
           this.selected = false;
         },
-        beforeUpdate: function (dt) {},
-        updated: function (ctx) {
+        step: function (dt) {},
+        paint: function (ctx) {
           GameUtils.circle(ctx, this.pt, this.radius, {
             lineWidth: 2,
             strokeStyle: "black",
