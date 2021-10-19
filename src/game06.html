@@ -27,6 +27,7 @@
       // https://javart.tistory.com/80
       var pointer = { x: 0, y: 0 };
       var tileSize = 30;
+      var tick = tileSize / 2;
       var selectIdx = -1;
       var wallMeta = [
         "88888888888888888",
@@ -81,7 +82,7 @@
         {
           size: 14,
           speed: 50,
-          tick: tileSize / 2,
+          tick: tick,
           created: function (props) {
             // Object.assign(this, ctx);
             this.pt = {
@@ -184,6 +185,12 @@
               this.drawWall(ctx, j, i, Number(wallMeta[i].charAt(j)));
             }
           }
+          this.drawGrid(
+            ctx,
+            { x: tileSize, y: tileSize },
+            { x: (AreaWidth - 1) * tileSize, y: (AreaHeight - 1) * tileSize },
+            tileSize / 2
+          );
         },
         drawWall: function (ctx, x, y, type) {
           if (!type) return;
@@ -197,6 +204,24 @@
             {
               fillStyle: wall,
             }
+          );
+        },
+        drawGrid: function (ctx, pt0, pt1, step) {
+          for (let x = pt0.x; x < pt1.x; x += step) {
+            this.line(ctx, { x: x, y: pt0.y }, { x: x, y: pt1.y });
+          }
+          this.line(ctx, { x: pt1.x, y: pt0.y }, { x: pt1.x, y: pt1.y });
+          for (let y = pt0.y; y < pt1.y; y += step) {
+            this.line(ctx, { x: pt0.x, y: y }, { x: pt1.x, y: y });
+          }
+          this.line(ctx, { x: pt0.x, y: pt1.y }, { x: pt1.x, y: pt1.y });
+        },
+        line: function (ctx, pt0, pt1) {
+          GameUtils.line(
+            ctx,
+            { x: pt0.x - 0.5, y: pt0.y - 0.5 },
+            { x: pt1.x - 0.5, y: pt1.y - 0.5 },
+            { lineDash: [5, 5] }
           );
         },
       });
@@ -290,6 +315,10 @@
           var pt = { x: ev.offsetX, y: ev.offsetY };
           var idxX = Math.floor(pt.x / tileSize);
           var idxY = Math.floor(pt.y / tileSize);
+
+          var tickX = Math.floor(pt.x / tick);
+          var tickY = Math.floor(pt.y / tick);
+
           // check Object
           if (
             enermies.some(function (it) {
