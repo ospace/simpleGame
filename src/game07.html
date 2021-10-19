@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>game06</title>
+    <title>game07</title>
     <style>
       button.active {
         background-color: #ccc;
@@ -25,7 +25,7 @@
       // https://blog.unity.com/kr/technology/on-dots-entity-component-system
       // https://everyday-devup.tistory.com/68
       // https://javart.tistory.com/80
-      var pointer = { x: 0, y: 0 };
+      var pointer;
       var tileSize = 30;
       var tick = tileSize / 2;
       var selectIdx = -1;
@@ -171,26 +171,45 @@
         },
         { layer: 1 }
       );
+
       GameWorld.Entity("Wall", {
-        step: function (dt) {
+        created: function (props) {
           this.ptnWall = [
             GameWorld.createPattern(5, 2, 3, "lightgray", "gray"),
             GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
             GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
           ];
         },
-        paint: function (ctx) {
-          for (var i = 0; i < wallMeta.length; ++i) {
-            for (var j = 0; j < wallMeta[i].length; ++j) {
-              this.drawWall(ctx, j, i, Number(wallMeta[i].charAt(j)));
-            }
+        step: function (dt) {
+          if (pointer) {
+            this.select = {
+              x: Math.floor(pointer.x / tick - 0.5) * tick,
+              y: Math.floor(pointer.y / tick - 0.5) * tick,
+            };
+            !isWall(pointer.wx, pointer.wy, "0");
+          } else {
+            this.select = null;
           }
+        },
+        paint: function (ctx) {
           this.drawGrid(
             ctx,
             { x: tileSize, y: tileSize },
             { x: (AreaWidth - 1) * tileSize, y: (AreaHeight - 1) * tileSize },
             tileSize / 2
           );
+
+          for (var i = 0; i < wallMeta.length; ++i) {
+            for (var j = 0; j < wallMeta[i].length; ++j) {
+              this.drawWall(ctx, j, i, Number(wallMeta[i].charAt(j)));
+            }
+          }
+
+          if (this.select) {
+            GameUtils.rect(ctx, this.select, tileSize, tileSize, {
+              strokeStyle: this.select.disable ? "red" : "green",
+            });
+          }
         },
         drawWall: function (ctx, x, y, type) {
           if (!type) return;
@@ -310,6 +329,8 @@
       function startup() {
         GameWorld.on("mousemove", function (ev) {
           pointer = { x: ev.offsetX, y: ev.offsetY };
+          pointer.wx = Math.floor(pointer.x / tileSize);
+          pointer.wy = Math.floor(pointer.y / tileSize);
         });
         GameWorld.on("mousedown", function (ev) {
           var pt = { x: ev.offsetX, y: ev.offsetY };
@@ -349,9 +370,9 @@
         AreaWidth = Math.floor(GameWorld.width / tileSize);
         AreaHeight = Math.floor(GameWorld.height / tileSize);
         new GameWorld.Entity.Wall();
-        setInterval(function () {
-          enermies.push(new GameWorld.Entity.Enermy({ pt: { x: 0, y: 5 } }));
-        }, 1000);
+        // setInterval(function () {
+        //   enermies.push(new GameWorld.Entity.Enermy({ pt: { x: 0, y: 5 } }));
+        // }, 1000);
       }
       window.addEventListener("load", function () {
         GameWorld.initialize("canvas1", startup);
