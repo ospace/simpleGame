@@ -6,17 +6,14 @@
       button.active {
         background-color: #ccc;
       }
-
       canvas {
         border: 1px solid black;
       }
-
       #canvas1 {
         position: relative;
       }
     </style>
   </head>
-
   <body>
     <p>
       <canvas id="canvas1" width="510" height="300"></canvas>
@@ -28,41 +25,39 @@
         this.data = [];
         this.compare =
           compare ||
-          function (l, r) {
-            return l - r;
+          function (p, c) {
+            return p < c; //
           };
       }
-
       Object.assign(Heap.prototype, {
         push: function (val) {
-          let idx = this.data.length + 1;
+          let c = this.data.length + 1;
           this.data.push(val);
-          while (1 < idx) {
-            let p = idx >> 1;
-            if (0 >= this.compare(this.data[p - 1], this.data[idx - 1])) break;
-            this.swap(p - 1, idx - 1);
-            idx = p;
+          while (1 < c) {
+            let p = c >> 1;
+            if (this.compare(this.at(p), this.at(c))) break;
+            this.swap(p, c);
+            c = p;
           }
         },
         pop: function () {
-          if (this.empty()) return undefined;
+          if (0 === this.data.length) return undefined;
           let ret = this.data[0];
-          let lastIdx = this.data.length - 1;
           let lastValue = this.data.pop();
+          let lastIdx = this.data.length;
           if (0 < lastIdx) {
             this.data[0] = lastValue;
-            let id = 1,
+            let p = 1,
               c = 0;
-            while (id < lastIdx) {
-              c = id << 1;
+            while (p < lastIdx) {
+              c = p << 1;
               if (c > lastIdx) break;
               if (c < lastIdx) {
-                c =
-                  0 > this.compare(this.data[c - 1], this.data[c]) ? c : c + 1;
+                c = this.compare(this.at(c), this.at(c + 1)) ? c : c + 1;
               }
-              if (0 >= this.compare(this.data[id - 1], this.data[c - 1])) break;
-              this.swap(id - 1, c - 1);
-              id = c;
+              if (this.compare(this.at(p), this.at(c))) break;
+              this.swap(p, c);
+              p = c;
             }
           }
           return ret;
@@ -70,13 +65,13 @@
         clear: function () {
           this.data = [];
         },
-        swap: function (idx0, idx1) {
-          let tmp = this.data[idx0];
-          this.data[idx0] = this.data[idx1];
-          this.data[idx1] = tmp;
+        swap: function (l, r) {
+          let tmp = this.data[l - 1];
+          this.data[l - 1] = this.data[r - 1];
+          this.data[r - 1] = tmp;
         },
-        empty: function () {
-          return 0 === this.data.length;
+        at: function (idx) {
+          return this.data[idx - 1];
         },
       });
 
@@ -84,19 +79,17 @@
       var wallMeta = [
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-        [2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       ];
-
       var source = { x: 0, y: 4 };
       var target = { x: 16, y: 5 };
-
       GameWorld.Entity("Wall", {
         step: function (dt) {
           this.ptnWall = [
@@ -124,17 +117,20 @@
           );
         },
       });
-
       GameWorld.Entity("Search", {
         created: function (ctx) {
           this.working = new Heap(function (l, r) {
-            return l.f - r.f;
+            return l.f < r.f;
           });
-          this.visitedIdx = [];
-          this.indes = [];
-          this.done = null;
           this.sizeX = Math.floor(GameWorld.width / tileSize);
           this.sizeY = Math.floor(GameWorld.height / tileSize);
+          this.searchRoute();
+          // setInterval(function () { this.step0() }.bind(this), 1000);
+        },
+        searchRoute() {
+          this.done = null;
+          this.indes = [];
+          this.visitedIdx = [];
           let n = Object.assign({}, source, {
             index: this.indexOf(source),
             g: 0,
@@ -142,16 +138,21 @@
             h: Math.abs(source.x - target.x) + Math.abs(source.y - target.y),
           });
           n.f = n.g + n.h;
+          this.working.clear();
           this.working.push(n);
           this.indes[n.index] = n;
         },
         step: function (dt) {
-          if (this.working.empty()) return;
           var self = this;
           // 1.작업목록에서 작은 F인 현재노드 추출
-          let n = this.working.pop();
-          if (this.visitedIdx[n.index]) return;
-
+          let n;
+          while (true) {
+            n = this.working.pop();
+            if (!n) return;
+            if (this.visitedIdx[n.index]) continue;
+            break;
+          }
+          this.current = n;
           this.visitedIdx[n.index] = true;
           if (n.x === target.x && n.y === target.y) {
             this.working.clear();
@@ -160,10 +161,10 @@
           }
           // 2. 현재노드에서 상하좌우노드 추출
           let list = [
-            { x: n.x + 1, y: n.y },
             { x: n.x - 1, y: n.y },
             { x: n.x, y: n.y + 1 },
             { x: n.x, y: n.y - 1 },
+            { x: n.x + 1, y: n.y },
           ];
           // 3. 추출노드 유효성 체크
           list = list.filter(function (each) {
@@ -191,12 +192,11 @@
             each.parent = n;
             each.order = n.order + 1;
           });
-
           // 8. 추출노드가 작업목록에 있다면 F값이 작다면 갱신 없다면 추가
           // 9. 현재노드 방문목록에 추가
           list.forEach(function (each) {
             let item = self.indes[each.index];
-            if (!item || item.f > each.f) {
+            if (!item || item.g > each.g) {
               self.indes[each.index] = each;
             }
             self.working.push(each);
@@ -215,10 +215,18 @@
               );
             } while ((n = n.parent));
           }
-
+          if (this.current) {
+            GameUtils.fillRect(
+              ctx,
+              { x: tileSize * this.current.x, y: tileSize * this.current.y },
+              tileSize,
+              tileSize,
+              { fillStyle: "blue" }
+            );
+          }
           this.indes.forEach(
             function (each) {
-              this.drawNum(ctx, each, each.index, each.f, each.order);
+              this.drawNum(ctx, each, each.index, each.f, each.g);
             }.bind(this)
           );
         },
@@ -255,7 +263,6 @@
                 fillStyle: "black",
               }
             );
-
           undefined !== txtBR &&
             GameUtils.text(
               ctx,
@@ -271,7 +278,6 @@
                 fillStyle: "black",
               }
             );
-
           GameUtils.rect(
             ctx,
             { x: tileSize * pt.x, y: tileSize * pt.y },
@@ -282,12 +288,18 @@
         },
         f: function (pt) {},
       });
-
       function startup() {
         new GameWorld.Entity.Wall();
-        new GameWorld.Entity.Search();
+        var search = new GameWorld.Entity.Search();
+        GameWorld.on("mousedown", function (ev) {
+          var pt = { x: ev.offsetX, y: ev.offsetY };
+          var wX = Math.floor(pt.x / tileSize);
+          var wY = Math.floor(pt.y / tileSize);
+          if (0 !== wallMeta[wY][wX]) return;
+          wallMeta[wY][wX] = 1;
+          search.searchRoute();
+        });
       }
-
       window.addEventListener("load", function () {
         GameWorld.initialize("canvas1", startup);
       });

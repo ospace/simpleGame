@@ -11,56 +11,54 @@
         this.data = [];
         this.compare =
           compare ||
-          function (l, r) {
-            return l - r;
+          function (p, c) {
+            return p < c; //
           };
     }
-
     Object.assign(Heap.prototype, {
-    push: function (val) {
-        let idx = this.data.length + 1;
-        this.data.push(val);
-        while (1 < idx) {
-        let p = idx >> 1;
-        if (0 >= this.compare(this.data[p - 1], this.data[idx - 1])) break;
-        this.swap(p - 1, idx - 1);
-        idx = p;
-        }
-    },
-    pop: function () {
-        if (this.empty()) return undefined;
-        let ret = this.data[0];
-        let lastIdx = this.data.length - 1;
-        let lastValue = this.data.pop();
-        if (0 < lastIdx) {
-        this.data[0] = lastValue;
-        let id = 1,
-            c = 0;
-        while (id < lastIdx) {
-            c = id << 1;
-            if (c > lastIdx) break;
-            if (c < lastIdx) {
-            c =
-                0 > this.compare(this.data[c - 1], this.data[c]) ? c : c + 1;
+        push: function (val) {
+            let c = this.data.length + 1;
+            this.data.push(val);
+            while (1 < c) {
+            let p = c >> 1;
+            if (this.compare(this.at(p), this.at(c))) break;
+            this.swap(p, c);
+            c = p;
             }
-            if (0 >= this.compare(this.data[id - 1], this.data[c - 1])) break;
-            this.swap(id - 1, c - 1);
-            id = c;
-        }
-        }
-        return ret;
-    },
-    clear: function () {
-        this.data = [];
-    },
-    swap: function (idx0, idx1) {
-        let tmp = this.data[idx0];
-        this.data[idx0] = this.data[idx1];
-        this.data[idx1] = tmp;
-    },
-    empty: function () {
-        return 0 === this.data.length;
-    },
+        },
+        pop: function () {
+            if (0 === this.data.length) return undefined;
+            let ret = this.data[0];
+            let lastValue = this.data.pop();
+            let lastIdx = this.data.length;
+            if (0 < lastIdx) {
+            this.data[0] = lastValue;
+            let p = 1,
+                c = 0;
+            while (p < lastIdx) {
+                c = p << 1;
+                if (c > lastIdx) break;
+                if (c < lastIdx) {
+                c = this.compare(this.at(c), this.at(c + 1)) ? c : c + 1;
+                }
+                if (this.compare(this.at(p), this.at(c))) break;
+                this.swap(p, c);
+                p = c;
+            }
+            }
+            return ret;
+        },
+        clear: function () {
+            this.data = [];
+        },
+        swap: function (l, r) {
+            let tmp = this.data[l - 1];
+            this.data[l - 1] = this.data[r - 1];
+            this.data[r - 1] = tmp;
+        },
+        at: function (idx) {
+            return this.data[idx - 1];
+        },
     });
 
     function rollback(ctx, action) {

@@ -28,30 +28,26 @@
       var pointer = { x: 0, y: 0 };
       var tileSize = 30;
       var selectIdx = -1;
-
       var wallMeta = [
-        "11111111111111111",
-        "10000000000000001",
-        "10000000000000001",
-        "10000000000000003",
+        "88888888888888888",
+        "80000000000000008",
+        "80000000000000008",
+        "80000000000000008",
         "20000000000000003",
         "20000000000000003",
-        "10000000000000003",
-        "10000000000000001",
-        "10000000000000001",
-        "11111111111111111",
+        "80000000000000003",
+        "80000000000000008",
+        "80000000000000008",
+        "88888888888888888",
       ];
-
       function setWall(x, y, val) {
         var col = wallMeta[y];
         wallMeta[y] = col.substr(0, x) + val + col.substr(x + val.length);
       }
-
       function isWall(x, y, val) {
         var col = wallMeta[y];
         return val === col.charAt(x);
       }
-
       function findAll(compare) {
         var ret = [];
         for (var i = 0; i < wallMeta.length; ++i) {
@@ -62,49 +58,60 @@
         }
         return ret;
       }
-
       var exits = findAll(function (it) {
         return it === "3";
       });
-
+      function overlap(o1, o2) {
+        return !(
+          o1.y + o1.h - 1 < o2.y ||
+          o1.y > o2.y + o2.h - 1 ||
+          o1.x + o1.w - 1 < o2.x ||
+          o1.x > o2.x + o2.w - 1
+        );
+      }
       var AreaWidth;
       var AreaHeight;
-
       var enermies = [];
       function removeEnermy(obj) {
         var idx = enermies.indexOf(obj);
         ~idx && enermies.splice(idx, 1);
       }
-
       GameWorld.Entity(
         "Enermy",
         {
           size: 14,
+          speed: 50,
+          tick: tileSize / 2,
           created: function (props) {
             // Object.assign(this, ctx);
-            this.tick = tileSize / 2;
-            this.speed = 100;
             this.pt = {
               x: props.pt.x * tileSize + this.tick,
               y: props.pt.y * tileSize + this.tick,
             };
             this.updateRoute();
-            this.nextRoute();
+          },
+          move: function (from, to, len) {
+            let dl = to - from;
+            return 1 > Math.abs(dl) ? to : 0 < dl ? from + len : from - len;
           },
           step: function (dt) {
             try {
-              this.pt.x += this.direction.x * this.speed * dt;
-              this.pt.y += this.direction.y * this.speed * dt;
+              if (this.toPt) {
+                var len = this.speed * dt;
+                this.pt.x = this.move(this.pt.x, this.toPt.x, len);
+                this.pt.y = this.move(this.pt.y, this.toPt.y, len);
+              } else {
+                removeEnermy(this);
+                return this.delete();
+              }
               if (
                 this.pt.x >= GameWorld.width ||
                 this.pt.y >= GameWorld.height
               ) {
                 removeEnermy(this);
-                this.delete();
+                return this.delete();
               }
-              if (this.isArrived()) {
-                this.nextRoute();
-              }
+              this.isArrived() && this.nextRoute();
             } catch (ex) {
               console.error(ex);
               removeEnermy(this);
@@ -126,111 +133,43 @@
               }.bind(this)
             );
             this.routeIdx = 0;
+            this.nextRoute();
           },
           nextRoute() {
-            this.routeIdx += 1;
-            if (this.routeIdx >= this.route.length) return;
-            var toPt = this.route[this.routeIdx];
-            this.direction = {
-              x: this.pt.x < toPt.x ? 1 : this.pt.x > toPt.x ? -1 : 0,
-              y: this.pt.y < toPt.y ? 1 : this.pt.y > toPt.y ? -1 : 0,
-            };
+            ++this.routeIdx;
+            if (this.routeIdx < this.route.length) {
+              this.toPt = this.route[this.routeIdx];
+            } else {
+              this.toPt = null;
+            }
           },
           isArrived() {
-            var toPt = this.route[this.routeIdx];
             if (this.route.length <= this.routeIdx) return false;
+            var toPt = this.route[this.routeIdx];
             var resultX = false,
               resultY = false;
-            if (0 < this.direction.x) {
-              resultX = this.pt.x >= toPt.x;
-            } else if (0 > this.direction.x) {
-              resultX = this.pt.x <= toPt.x;
-            } else {
+            if (2 > Math.abs(toPt.x - this.pt.x)) {
               resultX = true;
             }
-            if (0 < this.direction.y) {
-              resultY = this.pt.y >= toPt.y;
-            } else if (0 > this.direction.y) {
-              resultY = this.pt.y <= toPt.y;
-            } else {
+            if (2 > Math.abs(toPt.y - this.pt.y)) {
               resultY = true;
-            }
-            if (resultX) {
-              this.pt.x = toPt.x;
-            }
-            if (resultY) {
-              this.pt.y = toPt.y;
             }
             return resultX && resultY;
           },
           paint: function (ctx) {
-            // this.route &&
-            //   this.route.forEach(
-            //     function (it) {
-            //       this.drawNum(ctx, it, it.index);
-            //     }.bind(this)
-            //   );
             GameUtils.diamond(ctx, this.pt, this.size, this.size, {
               fillStyle: "red",
             });
           },
-          drawNum: function (ctx, pt, txtCenter, txtBL, txtBR) {
-            GameUtils.text(
-              ctx,
-              {
-                x: tileSize * pt.x + tileSize / 2,
-                y: tileSize * pt.y + 11,
-              },
-              txtCenter,
-              {
-                font: "11px sans-serif",
-                textAlign: "center",
-                textBaseline: "middle",
-                fillStyle: "black",
-              }
-            );
-            undefined !== txtBL &&
-              GameUtils.text(
-                ctx,
-                {
-                  x: tileSize * pt.x + 3,
-                  y: tileSize * pt.y + tileSize - 6,
-                },
-                txtBL,
-                {
-                  font: "9px sans-serif",
-                  textAlign: "left",
-                  textBaseline: "middle",
-                  fillStyle: "black",
-                }
-              );
-            undefined !== txtBR &&
-              GameUtils.text(
-                ctx,
-                {
-                  x: tileSize * pt.x + tileSize - 3,
-                  y: tileSize * pt.y + tileSize - 6,
-                },
-                txtBR,
-                {
-                  font: "9px sans-serif",
-                  textAlign: "right",
-                  textBaseline: "middle",
-                  fillStyle: "black",
-                }
-              );
-            GameUtils.rect(
-              ctx,
-              { x: tileSize * pt.x, y: tileSize * pt.y },
-              tileSize,
-              tileSize,
-              { strokeStyle: "black" }
+          overlap: function (pt) {
+            return !(
+              this.tick < Math.abs(pt.x - this.pt.x) ||
+              this.tick < Math.abs(pt.y - this.pt.y)
             );
           },
         },
         { layer: 1 }
       );
-
       GameWorld.Entity("Wall", {
         step: function (dt) {
           this.ptnWall = [
@@ -248,7 +187,7 @@
         },
         drawWall: function (ctx, x, y, type) {
           if (!type) return;
-          var wall = this.ptnWall[type - 1];
+          var wall = this.ptnWall[8 === type ? 0 : type - 1];
           if (!wall) return;
           GameUtils.fillRect(
             ctx,
@@ -263,7 +202,7 @@
       });
       function searchExit(entry, exits, width, height) {
         var working = new GameUtils.Heap(function (l, r) {
-          return l.f - r.f;
+          return l.f < r.f;
         });
         var visitedIdx = [];
         var indes = [];
@@ -280,15 +219,15 @@
         var existIdxs = exits.map(function (it) {
           return indexOf(it);
         });
-        let n = Object.assign({}, entry, {
+        let start = Object.assign({}, entry, {
           index: indexOf(entry),
           g: 0,
           order: 0,
           h: h(entry),
         });
-        working.push(n);
-        while (!working.empty()) {
-          let n = working.pop();
+        working.push(start);
+        let n;
+        while ((n = working.pop())) {
           if (visitedIdx[n.index]) continue;
           visitedIdx[n.index] = true;
           if (~existIdxs.indexOf(n.index)) {
@@ -297,10 +236,10 @@
             break;
           }
           let list = [
-            { x: n.x + 1, y: n.y },
             { x: n.x - 1, y: n.y },
             { x: n.x, y: n.y + 1 },
             { x: n.x, y: n.y - 1 },
+            { x: n.x + 1, y: n.y },
           ];
           list.forEach(function (it) {
             it.index = indexOf(it);
@@ -310,8 +249,10 @@
               return 0 <= it.x && 0 <= it.y && it.x < width && it.y < height;
             })
             .filter(function (it) {
-              return (
-                "1" !== wallMeta[it.y].charAt(it.x) && !visitedIdx[it.index]
+              return !(
+                isWall(it.x, it.y, "1") ||
+                isWall(it.x, it.y, "8") ||
+                visitedIdx[it.index]
               );
             });
           list.forEach(function (it) {
@@ -341,38 +282,49 @@
       function applyGrid(val) {
         return Math.floor(val / grid) * grid + grid / 2;
       }
-
       function startup() {
         GameWorld.on("mousemove", function (ev) {
           pointer = { x: ev.offsetX, y: ev.offsetY };
         });
         GameWorld.on("mousedown", function (ev) {
           var pt = { x: ev.offsetX, y: ev.offsetY };
-
           var idxX = Math.floor(pt.x / tileSize);
           var idxY = Math.floor(pt.y / tileSize);
-
-          // check wall
-          if (isWall(idxX, idxY, "1")) return;
-
           // check Object
+          if (
+            enermies.some(function (it) {
+              return it.overlap(pt);
+            })
+          )
+            return;
           // check route
-
-          setWall(idxX, idxY, "1");
-          enermies.forEach(function (it) {
-            it.updateRoute();
-          });
+          if (isWall(idxX, idxY, "0")) {
+            setWall(idxX, idxY, "1");
+            var foundRoute = searchExit(
+              { x: 0, y: 5 },
+              exits,
+              AreaWidth,
+              AreaHeight
+            );
+            if (!foundRoute || !foundRoute.length) {
+              setWall(idxX, idxY, "0");
+              return;
+            }
+            enermies.forEach(function (it) {
+              it.updateRoute();
+            });
+          } else if (isWall(idxX, idxY, "1")) {
+            setWall(idxX, idxY, "0");
+          }
         });
-
         AreaWidth = Math.floor(GameWorld.width / tileSize);
         AreaHeight = Math.floor(GameWorld.height / tileSize);
-
         new GameWorld.Entity.Wall();
+        enermies.push(new GameWorld.Entity.Enermy({ pt: { x: 0, y: 5 } }));
         setInterval(function () {
           enermies.push(new GameWorld.Entity.Enermy({ pt: { x: 0, y: 5 } }));
-        }, 500);
+        }, 1000);
       }
-
       window.addEventListener("load", function () {
         GameWorld.initialize("canvas1", startup);
       });
