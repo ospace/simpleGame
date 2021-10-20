@@ -17,6 +17,10 @@
   <body>
     <p>
       <canvas id="canvas1" width="510" height="300"></canvas>
+      <button id="canon">Canon(10)</button>
+      <button id="wall" onClick="onWall()">Wall(1)</button>
+      <button disabled="true">Upgrade(00)</button>
+      <button disabled="true">Sell(00)</button>
     </p>
     <script src="engine.js"></script>
     <script src="util.js"></script>
@@ -25,7 +29,17 @@
       // https://blog.unity.com/kr/technology/on-dots-entity-component-system
       // https://everyday-devup.tistory.com/68
       // https://javart.tistory.com/80
-      var pointer;
+
+      function onCanon() {
+        console.log("> click canon");
+      }
+
+      function onWall() {
+        console.log("> click wall");
+      }
+
+      //var pointer;
+      //var click;
       var tileSize = 30;
       var tick = tileSize / 2;
       var selectIdx = -1;
@@ -77,6 +91,99 @@
         var idx = enermies.indexOf(obj);
         ~idx && enermies.splice(idx, 1);
       }
+      GameWorld.Entity(
+        "Info",
+        {
+          created: function () {
+            this.message = "";
+            this.messageTmeout = 0;
+            this.gold = 10000;
+            this.score = 0;
+          },
+          step: function (dt) {
+            // this.score = pointer ? `${pointer.x},${pointer.y}` : "";
+            // GameWorld.Input.pointer.pos
+            if (0 < this.messageTmeout) {
+              this.messageTmeout -= dt;
+            } else {
+              this.message = "";
+            }
+          },
+          paint: function (ctx) {
+            GameUtils.text(
+              ctx,
+              {
+                x: tileSize,
+                y: tick,
+              },
+              "Score: " + this.score,
+              {
+                font: "bold 16px sans-serif",
+                textAlign: "left",
+                textBaseline: "middle",
+                fillStyle: "white",
+                strokeStyle: "black",
+              }
+            );
+
+            GameUtils.text(
+              ctx,
+              {
+                x: (AreaWidth - 1) * tileSize,
+                y: tick,
+              },
+              `Gold: ${this.gold}`,
+              {
+                font: "bold 16px sans-serif",
+                textAlign: "right",
+                textBaseline: "middle",
+                fillStyle: "white",
+                strokeStyle: "black",
+              }
+            );
+
+            this.message &&
+              GameUtils.text(
+                ctx,
+                {
+                  x: tileSize,
+                  y: GameWorld.height - tick,
+                },
+                this.message,
+                {
+                  font: "12px sans-serif",
+                  textAlign: "left",
+                  textBaseline: "middle",
+                  fillStyle: "white",
+                  strokeStyle: "black",
+                }
+              );
+          },
+          setMessage: function (value) {
+            this.message = value;
+            this.messageTmeout = 3;
+          },
+          addScore: function (value) {
+            this.scroe += value;
+          },
+          deposit: function (value) {
+            this.gold += value;
+          },
+          withdraw: function (value) {
+            var ret = 0;
+            if (value <= this.gold) {
+              this.gold -= value;
+              ret = value;
+            } else {
+              ret = this.gold;
+              this.gold = 0;
+            }
+            return ret;
+          },
+        },
+        { layer: 9 }
+      );
+
       GameWorld.Entity(
         "Enermy",
         {
@@ -171,24 +278,100 @@
         },
         { layer: 1 }
       );
-
       GameWorld.Entity("Wall", {
         created: function (props) {
           this.ptnWall = [
-            GameWorld.createPattern(5, 2, 3, "lightgray", "gray"),
-            GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
-            GameWorld.createPattern(5, 3, 1, "lightgray", "gray"),
+            GameWorld.createPattern(5, 2, 4, "lightgray", "gray"), // wall(fixed)
+            GameWorld.createPattern(5, 2, 3, "lightgray", "gray"), // wall
+            GameWorld.createPattern(5, 3, 1, "lightgray", "gray"), // entry
+            GameWorld.createPattern(5, 3, 1, "lightgray", "gray"), // exit
           ];
+          this.pointer = GameWorld.Pointer;
+          this.tick = tick;
+          this.selected = null;
+          this.baseWalls = [];
+          this.status = [];
+          this.height = wallMeta.length;
+          this.width = wallMeta[0] ? wallMeta[0].length : 0;
+          this.tickWidth = this.width << 1;
+          let types = { 1: 1, 2: 2, 3: 3, 8: 0 };
+          for (let i = 0; i < this.height; ++i) {
+            for (let j = 0; j < this.width; ++j) {
+              let type = types[wallMeta[i].charAt(j)];
+              if (undefined === type) continue;
+              let tickIdx = (i * this.tickWidth + j) << 1;
+              let idx = this.baseWalls.length;
+              this.pushWall(tickIdx, {
+                pt: { x: j * tileSize, y: i * tileSize },
+                tickIdx: tickIdx,
+                type: type,
+              });
+            }
+          }
+        },
+        pushWall: function (tickIdx, wall) {
+          if (this.isWallStatus(tickIdx)) return;
+          this.setWallStatus(tickIdx, wall);
+          this.baseWalls.push(wall);
+        },
+        removeWall: function (tickIdx) {
+          let wall = this.getWall(tickIdx);
+          if (!wall || 1 !== wall.type) return;
+          let idx = this.baseWalls.indexOf(wall);
+          ~idx && this.baseWalls.splice(idx, 1);
+          this.setWallStatus(wall.tickIdx, undefined);
+        },
+        getWall: function (tickIdx) {
+          return (
+            this.status[tickIdx] ||
+            this.status[tickIdx + 1] ||
+            this.status[this.tickWidth + tickIdx] ||
+            this.status[this.tickWidth + tickIdx + 1]
+          );
+        },
+        setWallStatus: function (tickIdx, value) {
+          this.status[tickIdx] =
+            this.status[tickIdx + 1] =
+            this.status[this.tickWidth + tickIdx] =
+            this.status[this.tickWidth + tickIdx + 1] =
+              value;
+        },
+        isWallStatus: function (tickIdx) {
+          return undefined !== this.getWall(tickIdx);
         },
         step: function (dt) {
-          if (pointer) {
-            this.select = {
-              x: Math.floor(pointer.x / tick - 0.5) * tick,
-              y: Math.floor(pointer.y / tick - 0.5) * tick,
+          if (!this.pointer) return;
+
+          if (this.pointer.pos) {
+            let tickX = Math.floor(this.pointer.pos.x / tick - 0.5);
+            let tickY = Math.floor(this.pointer.pos.y / tick - 0.5);
+            let tickIdx = tickY * this.tickWidth + tickX;
+            this.hover = {
+              x: tickX * tick,
+              y: tickY * tick,
+              disabled: this.isWallStatus(tickIdx),
             };
-            !isWall(pointer.wx, pointer.wy, "0");
+
+            if (this.pointer.click) {
+              this.pointer.click = false;
+              if (this.isWallStatus(tickIdx)) {
+                var wall = this.getWall(tickIdx);
+                if (1 === wall.type) {
+                  this.selected = wall;
+                  GameWorld.emit("walldown", wall);
+                }
+              } else {
+                this.selected && GameWorld.emit("wallup", this.selected);
+                this.selected = null;
+                this.pushWall(tickIdx, {
+                  pt: { x: tickX * this.tick, y: tickY * this.tick },
+                  tickIdx: tickIdx,
+                  type: 1,
+                });
+              }
+            }
           } else {
-            this.select = null;
+            this.hover = null;
           }
         },
         paint: function (ctx) {
@@ -198,32 +381,22 @@
             { x: (AreaWidth - 1) * tileSize, y: (AreaHeight - 1) * tileSize },
             tileSize / 2
           );
-
-          for (var i = 0; i < wallMeta.length; ++i) {
-            for (var j = 0; j < wallMeta[i].length; ++j) {
-              this.drawWall(ctx, j, i, Number(wallMeta[i].charAt(j)));
-            }
-          }
-
-          if (this.select) {
-            GameUtils.rect(ctx, this.select, tileSize, tileSize, {
-              strokeStyle: this.select.disable ? "red" : "green",
+          for (var i = 0; i < this.baseWalls.length; ++i) {
+            let wall = this.baseWalls[i];
+            GameUtils.fillRect(ctx, wall.pt, tileSize, tileSize, {
+              fillStyle: this.ptnWall[wall.type],
             });
           }
-        },
-        drawWall: function (ctx, x, y, type) {
-          if (!type) return;
-          var wall = this.ptnWall[8 === type ? 0 : type - 1];
-          if (!wall) return;
-          GameUtils.fillRect(
-            ctx,
-            { x: x * tileSize, y: y * tileSize },
-            tileSize,
-            tileSize,
-            {
-              fillStyle: wall,
-            }
-          );
+
+          this.hover &&
+            GameUtils.rect(ctx, this.hover, tileSize, tileSize, {
+              strokeStyle: this.hover.disabled ? "red" : "green",
+            });
+          this.selected &&
+            GameUtils.rect(ctx, this.selected.pt, tileSize, tileSize, {
+              strokeStyle: "black",
+              lineWidth: 2,
+            });
         },
         drawGrid: function (ctx, pt0, pt1, step) {
           for (let x = pt0.x; x < pt1.x; x += step) {
@@ -327,52 +500,17 @@
         return Math.floor(val / grid) * grid + grid / 2;
       }
       function startup() {
-        GameWorld.on("mousemove", function (ev) {
-          pointer = { x: ev.offsetX, y: ev.offsetY };
-          pointer.wx = Math.floor(pointer.x / tileSize);
-          pointer.wy = Math.floor(pointer.y / tileSize);
-        });
-        GameWorld.on("mousedown", function (ev) {
-          var pt = { x: ev.offsetX, y: ev.offsetY };
-          var idxX = Math.floor(pt.x / tileSize);
-          var idxY = Math.floor(pt.y / tileSize);
-
-          var tickX = Math.floor(pt.x / tick);
-          var tickY = Math.floor(pt.y / tick);
-
-          // check Object
-          if (
-            enermies.some(function (it) {
-              return it.overlap(pt);
-            })
-          )
-            return;
-          // check route
-          if (isWall(idxX, idxY, "0")) {
-            setWall(idxX, idxY, "1");
-            var foundRoute = searchExit(
-              { x: 0, y: 5 },
-              exits,
-              AreaWidth,
-              AreaHeight
-            );
-            if (!foundRoute || !foundRoute.length) {
-              setWall(idxX, idxY, "0");
-              return;
-            }
-            enermies.forEach(function (it) {
-              it.updateRoute();
-            });
-          } else if (isWall(idxX, idxY, "1")) {
-            setWall(idxX, idxY, "0");
-          }
-        });
         AreaWidth = Math.floor(GameWorld.width / tileSize);
         AreaHeight = Math.floor(GameWorld.height / tileSize);
+        var info = new GameWorld.Entity.Info();
         new GameWorld.Entity.Wall();
         // setInterval(function () {
         //   enermies.push(new GameWorld.Entity.Enermy({ pt: { x: 0, y: 5 } }));
         // }, 1000);
+
+        GameWorld.on("walldown", function (ev) {
+          console.log("> walldown:", ev.detail);
+        });
       }
       window.addEventListener("load", function () {
         GameWorld.initialize("canvas1", startup);

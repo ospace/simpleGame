@@ -12,7 +12,7 @@
         this.compare =
           compare ||
           function (p, c) {
-            return p < c; //
+            return p < c;
           };
     }
     Object.assign(Heap.prototype, {

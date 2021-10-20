@@ -2,7 +2,7 @@
     root.GameWorld = factory(window, document);
 }(this, function(w, d) {
 
-    function Renderer() {
+    function RenderManager() {
         var lastTime_ = new Date().getTime();
         var vendors = ['ms', 'moz', 'webkit', 'o'];
         for(var x = 0; x < vendors.length && !w.requestAnimationFrame; ++x) {
@@ -80,10 +80,69 @@
                 }
             }
         }
+    } 
+
+    function InputManager() {
+        var self = this;
+        this.pointer  = {  pos:null, click: false, leftButton: false, rightButton: false, middleButton: false };
+        this.elem  = null;
+
+        var buttons = ['leftButton', 'middleButton', 'rightButton'];
+
+        function onClickMouse(val, ev) {
+            var button = buttons[ev.button]
+            button && (self.pointer[button] = val);
+            self.pointer.click = val;
+        }
+
+        this.bind = function(elem) {
+            if (this.elem) throw new Error('InputManager already binded');
+
+            this.elem = elem;
+
+            elem.addEventListener("mousemove", function(ev) {
+                self.pointer.pos = { x: ev.offsetX, y: ev.offsetY };
+            });
+            elem.addEventListener("mousedown", onClickMouse.bind(this, true));
+            elem.addEventListener("mouseup", onClickMouse.bind(this, false));
+        }
+        
     }
 
-    var renderer = new Renderer();
-    
+    function EventManager() {
+        if  ( 'function' !== typeof window.CustomEvent) {
+            window.CustomEvent = function(event, params) {
+                params = Object.assign({ bubbles:false, cancelable: false, detail:null }, params || {});
+                var  ret = document.createEvent('CustomEvent');
+                ret.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
+                return ret;
+            }
+        }
+
+        var self = this;
+
+        function detailHandler(ev, next) {
+            return next(ev.detail);
+        }
+
+        this.bind = function(elem)  {
+            if (this.elem) throw new Error('EventManager already binded.');
+            this.elem = elem;
+        }
+        this.on = function(event, handler) {
+            self.elem && self.elem.addEventListener(event, handler);
+        }
+        this.off = function(event, handler) {
+            self.elem && self.elem.removeEventListener(event, handler);
+        }
+        this.emit = function(event, detail) {
+            self.elem && self.elem.dispatchEvent(new CustomEvent(event, { detail: detail }));
+        }
+    }
+
+    var render_ = new RenderManager;
+    var input_ = new InputManager;
+    var event_ = new EventManager;
 
     var canvas_ = null;
     var ctx_ = null;
@@ -120,30 +179,23 @@
         return !((o1.y+o1.h-1<o2.y) || (o1.y>o2.y+o2.h-1) ||
                  (o1.x+o1.w-1<o2.x) || (o1.x>o2.x+o2.w-1));
     };
-    // function onMouseDown(ev) {
-    // }
-    // function onMouseUp(ev) {
-    //     this.emit('point', {x: ev.offsetX, y:ev.offsetY});
-    // }
-    // function onMouseMove(ev) {
-    // }
 
     function isUndef(obj) { return undefined === obj || null == obj; }
+
 
     return {
         initialize: function(canvasId, startup) {
             if (canvas_) return;
             canvas_ = d.getElementById(canvasId);
             if (!canvas_) return alert('Cannot found canvas');
-            // canvas.addEventListener("mousedown", onMouseDown);
-            // canvas.addEventListener("mouseup", onMouseUp);
-            // canvas.addEventListener("mousemove", onMouseMove);
+
+            input_.bind(canvas_);
+            event_.bind(canvas_);
             this.width = canvas_.width;
             this.height= canvas_.height;
             ctx_ = canvas_.getContext && canvas_.getContext('2d');
-            // eachAction('setup');
-            renderer.action('setup');
-            renderer.start();
+            render_.action('setup');
+            render_.start();
             'function' === typeof startup && startup();
         },
         Entity: function(id, proto, opts) {
@@ -153,11 +205,12 @@
             this.Entity[id] = function(ctx) {
                 Object.setPrototypeOf(this, proto);
                 this.super = entityProto;
-                this.layer_ = isUndef(layer) ? renderer.push(this) : renderer.push(layer, this);
+                this.layer_ = isUndef(layer) ? render_.push(this) : render_.push(layer, this);
                 this.id_ = ++lastId_;
                 this.created(ctx);
             }
         },
+        Pointer: input_.pointer,
         clean: function() {
             if (!ctx_) return;
             ctx_.save();
@@ -171,7 +224,7 @@
             return true;
         },
         finally: function() {
-            removed_.forEach(each=>renderer.remove(each));
+            removed_.forEach(each=>render_.remove(each));
             removed_ = [];
         },
         createPattern: function (size, lines, type, lineColor1, lineColor2) {
@@ -224,14 +277,17 @@
     
             return ctx_.createPattern(patternCanvas, "repeat");
         },
-        on: function(eventId, handler) {
-            canvas_.addEventListener(eventId, handler);
-        },
-        off: function(eventId, handler) {
-            canvas_.removeEventListener(eventId, handler);
-        },
-        emit: function(eventId, detail) {
-            canvas_.eventDispatch(new CustomEvent(eventId, { detail: detail }));
-        }
+        on: event_.on,
+        off: event_.off,
+        emit: event_.emit,
+        // on: function(eventId, handler) {
+        //     canvas_.addEventListener(eventId, handler);
+        // },
+        // off: function(eventId, handler) {
+        //     canvas_.removeEventListener(eventId, handler);
+        // },
+        // emit: function(eventId, detail) {
+        //     canvas_.eventDispatch(new CustomEvent(eventId, { detail: detail }));
+        // }
     }
 }));
