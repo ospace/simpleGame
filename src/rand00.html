@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>rand04</title>
+    <style></style>
+  </head>
+
+  <body>
+    <p><canvas id="canvas1" width="400" height="100"></canvas></p>
+    <p><canvas id="canvas2" width="400" height="100"></canvas></p>
+    <p><canvas id="canvas3" width="400" height="100"></canvas></p>
+    <p><canvas id="canvas4" width="400" height="100"></canvas></p>
+    <p><canvas id="canvas5" width="400" height="100"></canvas></p>
+    <p><canvas id="canvas6" width="400" height="100"></canvas></p>
+    <script src="util.js"></script>
+    <script language="JavaScript">
+      var ctx = canvas1.getContext("2d");
+      // gl.viewport(0, 0, canvas1.width, canvas1.height);
+      //https://codepen.io/ImagineProgramming/pen/LpOJzM?editors=0010
+      //https://thebookofshaders.com/edit.php#10/ikeda-00.frag
+      //https://thebookofshaders.com/edit.php#10/ikeda-03.frag
+      //https://thebookofshaders.com/edit.php#10/ikeda-04.frag
+      (function ex01(canvas) {
+        var ctx = canvas.getContext("2d");
+        var W = canvas.width;
+        var H = canvas.height;
+        var H2 = H / 2;
+
+        for (var i = 0; i < W; ++i) {
+          dot(ctx, i, GameUtils.clamp(i - H2, 0, H));
+        }
+      })(canvas1);
+
+      (function ex02(canvas) {
+        var ctx = canvas.getContext("2d");
+        var W = canvas.width;
+        var H = canvas.height;
+        var H2 = H / 2;
+
+        for (var i = -2; i < 2; i += 0.01) {
+          dot(
+            ctx,
+            ((i / 2 + 1) * W) / 2,
+            GameUtils.smoothstep(0.0, 1.0, i) * H
+          );
+        }
+      })(canvas2);
+
+      function dot(ctx, x, y, r, c) {
+        ctx.beginPath();
+        ctx.arc(x, y, r || 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    </script>
+  </body>
+</html>

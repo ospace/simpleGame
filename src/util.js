@@ -140,5 +140,26 @@
         angle: function(pt0, pt1) {
             return Math.atan2(pt1.y - pt0.y, pt1.x - pt0.x);
         },
+        fract: function(val) {
+            // var ret = val - Math.floor(val);
+            var ret = val % 1; // 조금 더 빠름
+            return 0 > ret ? 1 + ret : ret;
+        },
+        dot: function(x0, y0, x1, y1) {
+            return x0 * x1 + y0 * y1;
+        },
+        mix: function(l, r, f) {
+            return l * (1 - f) + r * f;
+        },
+        clamp: function(val, minVal, maxVal) {
+            if (val > maxVal) return maxVal;
+            if (val < minVal) return minVal;
+            return val;
+            //return Math.min(Math.max(val, minVal), maxVal);
+        },
+        smoothstep: function(l, r, f) {
+            var t = this.clamp((f-l)/(r-l), 0.0, 1.0);
+            return t * t * (3.0 - 2.0 * t);
+        },
     };
 }));

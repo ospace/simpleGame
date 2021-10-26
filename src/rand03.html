@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>rand03</title>
+    <style></style>
+  </head>
+
+  <body>
+    <canvas id="canvas1" width="500" height="300"></canvas>
+    <script language="JavaScript">
+      // https://lab.hakim.se/trail/03/
+      // https://codepen.io/mendieta/pen/drNqMN
+      // https://codepen.io/soulwire/pen/Ffvlo
+      // https://codepen.io/borian/pen/oKwGA
+      // https://codepen.io/jackrugile/pen/aCzHs
+      // https://codepen.io/at80/pen/tqdmv
+      // https://codepen.io/waisbren89/pen/gwvVpP
+      // https://codepen.io/ImagineProgramming/pen/LpOJzM *
+      // https://codesandbox.io/s/ezlqz
+      var ctx = canvas1.getContext("2d");
+
+      var W = canvas1.width;
+      var H = canvas1.height;
+      var x0 = W >> 1;
+      var y0 = H >> 1;
+      var x1 = x0;
+      var y1 = y0;
+      canvas1.addEventListener("mousemove", function (ev) {
+        var x = ev.offsetX;
+        var y = ev.offsetY;
+
+        x0 = x - (x - x0) * 0.5;
+        y0 = y - (y - y0) * 0.5;
+        //dot(x, y);
+      });
+
+      var particles = [];
+
+      for (var i = 0; i < 10; ++i) {
+        particles.push({
+          speed: 0.01 + Math.random() * 0.04,
+          angle: Math.random() * 10,
+          orbit: 110 * 0.5 + 110 * 0.5 * Math.random(),
+        });
+        particles[particles.length - 1].x =
+          x0 + evalPosX(particles[particles.length - 1]);
+        particles[particles.length - 1].y =
+          y0 + evalPosY(particles[particles.length - 1]);
+      }
+
+      function evalPosX(p) {
+        return Math.cos(p.angle) * p.orbit;
+      }
+      function evalPosY(p) {
+        return Math.sin(p.angle) * p.orbit;
+      }
+
+      // ctx.globalCompositeOperation = "source-over";
+
+      //ctx.fillStyle = "rgba(34,54,142,1)";
+      //ctx.fillRect(0, 0, canvas1.width, canvas1.height);
+
+      function render() {
+        requestAnimationFrame(render);
+
+        ctx.beginPath();
+
+        ctx.globalCompositeOperation = "source-over";
+        // ctx.fillStyle = "rgba(34,54,142,0.025)";
+        ctx.fillStyle = "rgba(0,0,0,0.025)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = "lighter";
+        //ctx.globalCompositeOperation = "source-in";
+
+        // TODO 확인 필요
+        // ctx.lineWidth = 2; // 사용하면 화면에 잔상(찌꺼기)가남음
+        // ctx.lineCap = "round"; // 사용하면 화면에 잔상(찌꺼기)가남음
+
+        // ctx.fillStyle = "white";
+        ctx.strokeStyle = "white";
+
+        x1 += (x0 - x1) * 0.05;
+        y1 += (y0 - y1) * 0.05;
+
+        for (var i = 0; i < particles.length; ++i) {
+          var p = particles[i];
+          var x = x1 + evalPosX(p);
+          var y = y1 + evalPosY(p);
+
+          dot2(p.x, p.y, x, y, 0.5);
+          p.angle += p.speed;
+          p.x = x;
+          p.y = y;
+        }
+
+        ctx.stroke();
+        ctx.closePath();
+      }
+
+      requestAnimationFrame(render);
+
+      function dot(x, y, r) {
+        r = r || 1;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function dot2(x0, y0, x1, y1, r) {
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+      }
+    </script>
+  </body>
+</html>
