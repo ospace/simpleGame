@@ -1,19 +1,23 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <title>game07</title>
   <style>
     button.active {
       background-color: #ccc;
     }
+
     canvas {
       border: 1px solid black;
     }
+
     #canvas1 {
       position: relative;
     }
   </style>
 </head>
+
 <body>
   <p>
   <div>
@@ -456,10 +460,10 @@
             lineWidth: 2,
           });
       },
-    }, {layer: 5});
+    }, { layer: 5 });
 
     GameWorld.Entity("Base", {
-      created: function(props) {
+      created: function (props) {
         Object.assign(this, props);
       },
       paint: function (ctx) {
@@ -482,7 +486,7 @@
           { lineDash: [5, 5] }
         );
       },
-    }, {layer: 0});
+    }, { layer: 0 });
     function searchExit(entry, exits, width, height) {
       var working = new GameUtils.Heap(function (l, r) {
         return l.f < r.f;
@@ -576,9 +580,9 @@
         GameWorld.createPattern(5, 3, 1, "lightgray", "gray"), // exit
       ];
       let base = new GameWorld.Entity.Base({
-        x:0,
-        y:0,
-        width:GameWorld.width,
+        x: 0,
+        y: 0,
+        width: GameWorld.width,
         height: GameWorld.height,
         size: tileSize / 2,
       });
@@ -613,4 +617,5 @@
     });
   </script>
 </body>
+
 </html>

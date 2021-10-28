@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>test01</title>
+    <style>
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas1" width="100%" height="100%"></canvas>
+    <script language="JavaScript">
+        var ctx = canvas1.getContext("2d");
+        var data;
+        //var a = 1;
+        // canvas1.addEventListener('mousemove', function (e) {
+        //     var x = e.offsetX;
+        //     var y = e.offsetY;
+        //     //var x = e.offsetX || (e.changedTouches[0] && e.changedTouches[0].clientX);
+        //     //var y = e.offsetY || (e.changedTouches[0] && e.changedTouches[0].clientY);
+
+        //     // ctx.save();
+        //     // ctx.fillStyle = 'rgba(128,128,128,' + a + ')';
+        //     // dot(x, y, 2);
+        //     // //ctx.translate(ev.offsetX, ev.offsetY)
+        //     // //star(5, 3, 6);
+        //     // ctx.restore();
+
+        //     // a -= .01;
+        //     // a = a > 0 ? a : 1;
+
+        //     data.push(dots(x, y));
+        // });
+
+
+        var dotColors = [[255, 0, 0], [0, 255, 0], [0, 0, 255]];
+
+        function render() {
+            if (!data) {
+                data = [];
+                var x = canvas1.width >> 1;
+                var y = canvas1.height >> 1;
+                for (var i = 0; i < 100; i++) {
+                    var vx = (Math.random() * 10) - 5;
+                    var vy = (Math.random() * 6) - 3;
+                    var color = dotColors[~~(Math.random() * dotColors.length)];
+                    data.push({ x: x, y: y, vx, vy, color: `${color[0]},${color[1]},${color[2]}`, opacity: 1 });
+                }
+            }
+
+            clearCanvas();
+            var deleted = [];
+            ctx.save();
+            data.forEach(function (it) {
+                ctx.fillStyle = `rgba(${it.color},${it.opacity})`;
+                ctx.beginPath();
+                ctx.arc(it.x, it.y, 3, 0, 2 * Math.PI);
+                ctx.fill()
+                ctx.closePath()
+                it.opacity -= .01;
+                it.angle += it.va;
+                it.x += it.vx;
+                it.y += it.vy;
+                if (0 > it.opacity || 0 > it.x || canvas1.width < it.x || 0 > it.y || canvas1.height < it.y) deleted.push(it);
+            });
+            ctx.restore();
+            deleted.forEach(function (it) {
+                var idx = data.indexOf(it);
+                ~idx && data.splice(idx, 1);
+            });
+            if (0 === data.length) data = null;
+            requestAnimationFrame(render);
+        };
+
+        requestAnimationFrame(render);
+
+
+        function drawDots(dots) {
+            var deleted = [];
+            ctx.save();
+            dots.forEach(function (it) {
+                ctx.fillStyle = `rgba(${it.color[0]},${it.color[1]},${it.color[2]},${it.opacity})`;
+                ctx.arc(it.x, it.y, 2, 0, 2 * Math.PI);
+                ctx.fill()
+
+                it.opacity -= .022;
+                it.angle += it.va;
+                it.x += it.vx;
+                it.y += it.vy;
+                if (0 > it.opacity || 0 > it.x || canvas1.width < it.x || 0 > it.y || canvas1.height < it.y) deleted.push(it);
+            });
+            ctx.restore();
+            deleted.forEach(function (it) {
+                var idx = dots.indexOf(it);
+                ~idx && dots.splice(idx, 1);
+            });
+        }
+
+        function dots(x, y) {
+            var ret = [];
+            for (var i = 0; i < 5; i++) {
+                var vx = (Math.random() * 2) - 1;
+                var vy = (Math.random() * 2) - 1;
+                var color = dotColors[~~(Math.random() * dotColors.length)];
+                ret.push({ x, y, vx, vy, va: Math.random() * 0.01 - 0.02, color: color, opacity: 1 });
+            }
+            return ret;
+        }
+
+        window.addEventListener('resize', fullSize, false);
+        function fullSize() {
+            canvas1.width = window.innerWidth;
+            canvas1.height = window.innerHeight;
+        }
+        fullSize();
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas1.width, canvas1.height);
+        }
+
+        // ctx.beginPath();
+        // ctx.arc(100, 100, 20, 0, Math.PI * 2);
+        // ctx.stroke();
+
+        function dot(x, y, r, a) {
+            r = r || 3;
+            ctx.beginPath();
+            //var grap = ctx.createRadialGradient(x, y, 0, x + r, y + r, 10);
+            //grap.addColorStop(0, "rgb(128,128,128)");
+            //grap.addColorStop(1, 'rgb(1,1,1)');
+            //ctx.fillStyle = grap;
+            ctx.arc(x, y, r, 0, 2 * Math.PI);
+            ctx.fill()
+            ctx.closePath()
+        }
+
+        function star(cnt, innerR, outerR,) {
+            ctx.beginPath();
+            for (var i = 0; i < cnt; i++) {
+                // ctx.lineTo(Math.cos((18 + i * 72) / 180 * Math.PI) * outerR + outerR,
+                //     -Math.sin((18 + i * 72) / 180 * Math.PI) * outerR + outerR);
+                // ctx.lineTo(Math.cos((54 + i * 72) / 180 * Math.PI) * innerR + outerR,
+                //     -Math.sin((54 + i * 72) / 180 * Math.PI) * innerR + outerR);
+                ctx.lineTo(Math.cos((18 + i * 72) / 180 * Math.PI) * outerR,
+                    -Math.sin((18 + i * 72) / 180 * Math.PI) * outerR);
+                ctx.lineTo(Math.cos((54 + i * 72) / 180 * Math.PI) * innerR,
+                    -Math.sin((54 + i * 72) / 180 * Math.PI) * innerR);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+
+    </script>
+</body>
+
+</html>
