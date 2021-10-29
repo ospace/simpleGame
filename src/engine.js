@@ -202,12 +202,12 @@
             opts = opts || {};
             Object.setPrototypeOf(proto, entityProto);
             var layer = opts.layer;
-            this.Entity[id] = function(ctx) {
+            this.Entity[id] = function(props) {
                 Object.setPrototypeOf(this, proto);
                 this.super = entityProto;
                 this.layer_ = isUndef(layer) ? render_.push(this) : render_.push(layer, this);
                 this.id_ = ++lastId_;
-                this.created(ctx);
+                this.created(props);
             }
         },
         Pointer: input_.pointer,
