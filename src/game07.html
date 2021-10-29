@@ -200,7 +200,6 @@
           if (0 >= value) return 0;
           var ret = Math.min(value, this.gold);
           this.gold -= ret;
-          this.info.setGold(this.gold);
           return ret;
         },
         deposit: function (value) {
@@ -445,6 +444,7 @@
           });
       },
     }, { layer: 5 });
+
     GameWorld.Entity("Base", {
       created: function (props) {
         Object.assign(this, props);
@@ -457,19 +457,19 @@
         let x1 = this.x + this.width;
         let y1 = this.y + this.height;
         for (let x = this.x; x < x1; x += this.size) {
-          this.line(ctx, { x: x, y: this.y }, { x: x, y: y1 });
+          this.line(ctx, x, this.y, x, y1);
         }
-        this.line(ctx, { x: x1, y: this.y }, { x: x1, y: y1 });
+        this.line(ctx, x1, this.y, x1, y1);
         for (let y = this.y; y < y1; y += this.size) {
-          this.line(ctx, { x: this.x, y: y }, { x: x1, y: y });
+          this.line(ctx, this.x, y, x1, y);
         }
-        this.line(ctx, { x: x1, y: y1 }, { x: x1, y: y1 });;
+        this.line(ctx, x1, y1, x1, y1);;
       },
-      line: function (ctx, pt0, pt1) {
+      line: function (ctx, x0, y0, x1, y1) {
         GameUtils.line(
           ctx,
-          { x: pt0.x - 0.5, y: pt0.y - 0.5 },
-          { x: pt1.x - 0.5, y: pt1.y - 0.5 },
+          { x: x0 - 0.5, y: y0 - 0.5 },
+          { x: x1 - 0.5, y: y1 - 0.5 },
           { lineDash: [5, 5] }
         );
       },
@@ -512,6 +512,7 @@
         return { x: gridX * this.size, y: gridY * this.size };
       },
     }, { layer: 0 });
+
     function searchExit(entry, exits, width, height) {
       var working = new GameUtils.Heap(function (l, r) {
         return l.f < r.f;
