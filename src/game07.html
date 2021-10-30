@@ -31,10 +31,6 @@
   <script src="engine.js"></script>
   <script src="util.js"></script>
   <script language="JavaScript">
-    // https://m.blog.naver.com/kiseop91/221855589754
-    // https://blog.unity.com/kr/technology/on-dots-entity-component-system
-    // https://everyday-devup.tistory.com/68
-    // https://javart.tistory.com/80
     var platform;
     var selectedEntity;
     var currentItem = null;
@@ -52,8 +48,6 @@
       platform.upgrade();
     }
     function onSell(ev) {
-      // disableClass(btnWall.classList, 'active');
-      // disabledClass(btnCanon.classList, 'active');
       platform.sell();
       btnUpgrade.disabled = true;
       btnSell.disabled = true;
@@ -66,11 +60,9 @@
     function disableClass(classList, className) {
       classList.contains(className) && classList.remove(className);
     }
-    //var pointer;
-    //var click;
+
     var tileSize = 30;
     var tick = tileSize / 2;
-    var selectIdx = -1;
     var wallMeta = [
       "88888888888888888",
       "80000000000000008",
@@ -83,42 +75,9 @@
       "80000000000000008",
       "88888888888888888",
     ];
-    function setWall(x, y, val) {
-      var col = wallMeta[y];
-      wallMeta[y] = col.substr(0, x) + val + col.substr(x + val.length);
-    }
-    function isWall(x, y, val) {
-      var col = wallMeta[y];
-      return val === col.charAt(x);
-    }
-    function findAll(compare) {
-      var ret = [];
-      for (var i = 0; i < wallMeta.length; ++i) {
-        var col = wallMeta[i];
-        for (var j = 0; j < col.length; ++j) {
-          compare(col.charAt(j)) && ret.push({ x: j, y: i });
-        }
-      }
-      return ret;
-    }
-    var exits = findAll(function (it) {
-      return it === "3";
-    });
-    function overlap(o1, o2) {
-      return !(
-        o1.y + o1.h - 1 < o2.y ||
-        o1.y > o2.y + o2.h - 1 ||
-        o1.x + o1.w - 1 < o2.x ||
-        o1.x > o2.x + o2.w - 1
-      );
-    }
+    
     var AreaWidth;
     var AreaHeight;
-    var enermies = [];
-    function removeEnermy(obj) {
-      var idx = enermies.indexOf(obj);
-      ~idx && enermies.splice(idx, 1);
-    }
 
     GameWorld.Entity(
       "Status",
@@ -128,10 +87,9 @@
           this.messageTmeout = 0;
           this.gold = 0;
           this.score = 0;
+          this.life = 0;
         },
         step: function (dt) {
-          // this.score = pointer ? `${pointer.x},${pointer.y}` : "";
-          // GameWorld.Input.pointer.pos
           if (0 < this.messageTmeout) {
             this.messageTmeout -= dt;
           } else {
@@ -160,7 +118,7 @@
               x: (AreaWidth - 1) * tileSize,
               y: tick,
             },
-            `Gold: ${this.gold}`,
+            `Gold: ${this.gold} Life: ${10 > this.life ? '0'+this.life : this.life}`,
             {
               font: "bold 16px sans-serif",
               textAlign: "right",
@@ -205,103 +163,14 @@
         deposit: function (value) {
           this.gold += value;
         },
+        setLife: function (value) {
+          this.life = value;
+        },
+
       },
       { layer: 9 }
     );
-    GameWorld.Entity(
-      "Enermy",
-      {
-        size: 14,
-        speed: 50,
-        tick: tick,
-        created: function (props) {
-          this.pt = {
-            x: props.pt.x * tileSize + this.tick,
-            y: props.pt.y * tileSize + this.tick,
-          };
-          this.updateRoute();
-        },
-        move: function (from, to, len) {
-          let dl = to - from;
-          return 1 > Math.abs(dl) ? to : 0 < dl ? from + len : from - len;
-        },
-        step: function (dt) {
-          try {
-            if (this.toPt) {
-              var len = this.speed * dt;
-              this.pt.x = this.move(this.pt.x, this.toPt.x, len);
-              this.pt.y = this.move(this.pt.y, this.toPt.y, len);
-            } else {
-              removeEnermy(this);
-              return this.delete();
-            }
-            if (
-              this.pt.x >= GameWorld.width ||
-              this.pt.y >= GameWorld.height
-            ) {
-              removeEnermy(this);
-              return this.delete();
-            }
-            this.isArrived() && this.nextRoute();
-          } catch (ex) {
-            console.error(ex);
-            removeEnermy(this);
-            this.delete();
-          }
-        },
-        updateRoute() {
-          var pt = {
-            x: Math.floor(this.pt.x / tileSize),
-            y: Math.floor(this.pt.y / tileSize),
-          };
-          var route = searchExit(pt, exits, AreaWidth, AreaHeight);
-          this.route = route.map(
-            function (it) {
-              return {
-                x: it.x * tileSize + this.tick,
-                y: it.y * tileSize + this.tick,
-              };
-            }.bind(this)
-          );
-          this.routeIdx = 0;
-          this.nextRoute();
-        },
-        nextRoute() {
-          ++this.routeIdx;
-          if (this.routeIdx < this.route.length) {
-            this.toPt = this.route[this.routeIdx];
-          } else {
-            this.toPt = null;
-          }
-        },
-        isArrived() {
-          if (this.route.length <= this.routeIdx) return false;
-          var toPt = this.route[this.routeIdx];
-          var resultX = false,
-            resultY = false;
-          if (2 > Math.abs(toPt.x - this.pt.x)) {
-            resultX = true;
-          }
-          if (2 > Math.abs(toPt.y - this.pt.y)) {
-            resultY = true;
-          }
-          return resultX && resultY;
-        },
-        paint: function (ctx) {
-          GameUtils.diamond(ctx, this.pt, this.size, this.size, {
-            fillStyle: "red",
-          });
-        },
-        overlap: function (pt) {
-          return !(
-            this.tick < Math.abs(pt.x - this.pt.x) ||
-            this.tick < Math.abs(pt.y - this.pt.y)
-          );
-        },
-      },
-      { layer: 1 }
-    );
-    var ptnWall = null;
+    
     GameWorld.Entity("Wall", {
       created: function (props) {
         this.idx = props.idx;
@@ -309,6 +178,7 @@
         this.width = props.size;
         this.height = props.size;
         this.type = props.type;
+        this.ptnWall = props.ptnWall;
         this.upgradeTime = 1;
         this.upgradeTick = this.width / this.upgradeTime;
         this.props = {
@@ -333,7 +203,7 @@
       },
       paint: function (ctx) {
         GameUtils.fillRect(ctx, this.pt, this.width, this.height, {
-          fillStyle: ptnWall[this.type],
+          fillStyle: this.ptnWall[this.type],
         });
         if (0 < this.upgradeTimeout) {
           GameUtils.fillRect(ctx, { x: this.pt.x, y: this.pt.y + this.height - 8 }, this.upgradeBar, 8, {
@@ -365,6 +235,7 @@
       created: function (props) {
         var self = this;
         var gold = 10;
+        var life = 10;
 
         this.metaItems = {
           wall: {
@@ -378,6 +249,7 @@
         this.grid = props.grid;
         this.status = props.status;
         this.status.setGold(gold);
+        this.status.setLife(life);
 
         var height = wallMeta.length;
         var width = wallMeta[0] ? wallMeta[0].length : 0;
@@ -513,93 +385,10 @@
       },
     }, { layer: 0 });
 
-    function searchExit(entry, exits, width, height) {
-      var working = new GameUtils.Heap(function (l, r) {
-        return l.f < r.f;
-      });
-      var visitedIdx = [];
-      var indes = [];
-      var done;
-      function indexOf(pt) {
-        return pt.y * width + pt.x;
-      }
-      function h(pt) {
-        var ret = exits.map(function (it) {
-          return Math.abs(it.x - pt.x) + Math.abs(it.y - pt.y);
-        });
-        return Math.min.apply(null, ret);
-      }
-      var existIdxs = exits.map(function (it) {
-        return indexOf(it);
-      });
-      let start = Object.assign({}, entry, {
-        index: indexOf(entry),
-        g: 0,
-        order: 0,
-        h: h(entry),
-      });
-      working.push(start);
-      let n;
-      while ((n = working.pop())) {
-        if (visitedIdx[n.index]) continue;
-        visitedIdx[n.index] = true;
-        if (~existIdxs.indexOf(n.index)) {
-          working.clear();
-          done = n;
-          break;
-        }
-        let list = [
-          { x: n.x - 1, y: n.y },
-          { x: n.x, y: n.y + 1 },
-          { x: n.x, y: n.y - 1 },
-          { x: n.x + 1, y: n.y },
-        ];
-        list.forEach(function (it) {
-          it.index = indexOf(it);
-        });
-        list = list
-          .filter(function (it) {
-            return 0 <= it.x && 0 <= it.y && it.x < width && it.y < height;
-          })
-          .filter(function (it) {
-            return !(
-              isWall(it.x, it.y, "1") ||
-              isWall(it.x, it.y, "8") ||
-              visitedIdx[it.index]
-            );
-          });
-        list.forEach(function (it) {
-          it.h = h(it);
-          it.g = n.g + 1;
-          it.f = it.h + it.g;
-          it.parent = n;
-          it.order = n.order + 1;
-        });
-        list.forEach(function (it) {
-          let item = indes[it.index];
-          if (!item || item.f > it.f) {
-            indes[it.index] = it;
-          }
-          working.push(it);
-        });
-      }
-      var ret = [];
-      var next = done;
-      while (next) {
-        ret.unshift({ x: next.x, y: next.y, index: next.index });
-        next = next.parent;
-      }
-      return ret;
-    }
-    var grid = 30;
-    function applyGrid(val) {
-      return Math.floor(val / grid) * grid + grid / 2;
-    }
-
     function startup() {
       AreaWidth = Math.floor(GameWorld.width / tileSize);
       AreaHeight = Math.floor(GameWorld.height / tileSize);
-      ptnWall = [
+      var ptnWall = [
         GameWorld.createPattern(5, 2, 4, "lightgray", "gray"), // wall(fixed)
         GameWorld.createPattern(5, 2, 3, "lightgray", "gray"), // wall
         GameWorld.createPattern(5, 3, 1, "lightgray", "gray"), // entry
@@ -611,12 +400,11 @@
         width: GameWorld.width,
         height: GameWorld.height,
         size: tileSize / 2,
+        ptnWall: ptnWall,
       });
       var status = new GameWorld.Entity.Status();
       platform = new GameWorld.Entity.Platform({ grid: base, status: status });
-      // setInterval(function () {
-      //   enermies.push(new GameWorld.Entity.Enermy({ pt: { x: 0, y: 5 } }));
-      // }, 1000);
+      
       GameWorld.on("walldown", function (ev) {
         selectedEntity = ev.detail;
         btnUpgrade.disabled = false;

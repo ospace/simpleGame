@@ -67,6 +67,143 @@
         ctx.restore();
     }
 
+    function indexOf(pt, width) {
+        return pt.y * width + pt.x;
+    }
+
+    function searchAStar(entry, exits, width, height, isPassable) {
+        var working = new Heap(function (l, r) {
+          return l.f < r.f;
+        });
+        var visitedIdx = [];
+        var indes = [];
+        var done;
+        
+        function h(pt) {
+          var ret = exits.map(function (it) {
+            return Math.abs(it.x - pt.x) + Math.abs(it.y - pt.y);
+          });
+          return Math.min.apply(null, ret);
+        }
+        var existIdxs = exits.map(function (it) {
+          return indexOf(it, width);
+        });
+        var start = Object.assign({}, entry, {
+          index: indexOf(entry, width),
+          g: 0,
+          order: 0,
+          h: h(entry),
+        });
+        working.push(start);
+        var n;
+        while ((n = working.pop())) {
+          if (visitedIdx[n.index]) continue;
+          visitedIdx[n.index] = true;
+          if (~existIdxs.indexOf(n.index)) {
+            working.clear();
+            done = n;
+            break;
+          }
+          var list = [
+            { x: n.x - 1, y: n.y },
+            { x: n.x, y: n.y + 1 },
+            { x: n.x, y: n.y - 1 },
+            { x: n.x + 1, y: n.y },
+          ];
+          list.forEach(function (it) {
+            it.index = indexOf(it, width);
+          });
+          list = list
+            .filter(function (it) {
+              return 0 <= it.x && 0 <= it.y && it.x < width && it.y < height;
+            })
+            .filter(function (it) {
+              return !(
+                isPassable(it.x, it.y) ||
+                visitedIdx[it.index]
+              );
+            });
+          list.forEach(function (it) {
+            it.h = h(it);
+            it.g = n.g + 1;
+            it.f = it.h + it.g;
+            it.parent = n;
+            it.order = n.order + 1;
+          });
+          list.forEach(function (it) {
+            var item = indes[it.index];
+            if (!item || item.f > it.f) {
+              indes[it.index] = it;
+            }
+            working.push(it);
+          });
+        }
+        var ret = [];
+        var next = done;
+        while (next) {
+          ret.unshift({ x: next.x, y: next.y, index: next.index });
+          next = next.parent;
+        }
+        return ret;
+    }
+
+    function searchSimple(entry, exits, width, height, isPassable) {
+      var working = [];
+      var visitedIdx = [];
+
+      var existIdxs = exits.map(function (it) {
+        return indexOf(it, width);
+      });
+
+      var done;
+      var n = {x:entry.x, y:entry.y, index: indexOf(entry, width), toString};
+      function toString() { return `${this.index}(${this.x}, ${this.y})` }
+      visitedIdx[n.index] = true;
+      working.push(n);
+      while(n = working.shift()) {
+        if (~existIdxs.indexOf(n.index)) {
+          done = n;
+          break;
+        }
+
+        var list = [
+          { x: n.x + 1, y: n.y, toString },
+          { x: n.x - 1, y: n.y, toString },
+          { x: n.x, y: n.y + 1, toString },
+          { x: n.x, y: n.y - 1, toString },
+        ];
+
+        list.forEach(function (each) {
+          each.index = indexOf(each, width);
+        });
+
+        list = list.filter(function (it) {
+          return !(
+            0 > it.x ||
+            0 > it.y ||
+            it.x > width ||
+            it.y > height
+          );
+        }).filter(function (it) {
+          return !visitedIdx[it.index] && isPassable(it.x, it.y);
+        });
+
+        list.forEach(function (it) {
+          it.parent = n;
+          working.push(it);
+          visitedIdx[it.index] = true;
+        });
+      }
+
+      var ret = [];
+      var next = done;
+      while (next) {
+        ret.unshift({ x: next.x, y: next.y, index: next.index });
+        next = next.parent;
+      }
+      return ret;
+    }
+
     return {
         Heap: Heap,
         circle: function(ctx, pt, radius, opt) {
@@ -161,5 +298,7 @@
             var t = this.clamp((f-l)/(r-l), 0.0, 1.0);
             return t * t * (3.0 - 2.0 * t);
         },
+        searchAStar: searchAStar,
+        searchSimple: searchSimple,
     };
 }));
