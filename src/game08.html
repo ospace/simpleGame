@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>game08</title>
+  <style>
+    button.active {
+      background-color: #ccc;
+    }
+    canvas {
+      border: 1px solid black;
+    }
+    #canvas1 {
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <p>
+  <div>
+    <canvas id="canvas1" width="510" height="300"></canvas>
+  </div>
+  <div>
+    <button id="btnCanon" onclick="onCanon(event)">Canon(10)</button>
+    <button id="btnWall" onclick="onWall(event)">Wall(1)</button>
+    <button id="btnUpgrade" disabled="true" onclick="onUpgrade(event)">
+      Upgrade(<label id="upgradeCost">**</label>)
+    </button>
+    <button id="btnSell" disabled="true" onclick="onSell(event)">Sell(<label id="sellCost">**</label>)</button>
+  </div>
+  </p>
+  <script src="engine.js"></script>
+  <script src="util.js"></script>
+  <script language="JavaScript">
+    // https://m.blog.naver.com/kiseop91/221855589754
+    // https://blog.unity.com/kr/technology/on-dots-entity-component-system
+    // https://everyday-devup.tistory.com/68
+    // https://javart.tistory.com/80
+    var platform;
+    var selectedEntity;
+    var currentItem = null;
+    function onCanon(ev) {
+      disableClass(btnWall.classList, 'active');
+      enableClass(btnCanon.classList, 'active');
+      currentItem = 'canon';
+    }
+    function onWall(ev) {
+      enableClass(btnWall.classList, 'active');
+      disableClass(btnCanon.classList, 'active');
+      currentItem = 'wall';
+    }
+    function onUpgrade(ev) {
+      platform.upgrade();
+    }
+    function onSell(ev) {
+      platform.sell();
+      btnUpgrade.disabled = true;
+      btnSell.disabled = true;
+      upgradeCost.innerText = "**";
+      sellCost.innerText = "**";
+    }
+    function enableClass(classList, className) {
+      !classList.contains(className) && classList.add(className);
+    }
+    function disableClass(classList, className) {
+      classList.contains(className) && classList.remove(className);
+    }
+    
+    var tileSize = 30;
+    var tick = tileSize / 2;
+    var wallMeta = [
+      "88888888888888888",
+      "80000000000000008",
+      "80000000000000008",
+      "80000000000000008",
+      "20000000000000003",
+      "20000000000000003",
+      "80000000000000003",
+      "80000000000000008",
+      "80000000000000008",
+      "88888888888888888",
+    ];
+    function isWall(x, y, val) {
+      var col = wallMeta[y];
+      return val === col.charAt(x);
+    }
+    function findAll(compare) {
+      var ret = [];
+      for (var i = 0; i < wallMeta.length; ++i) {
+        var col = wallMeta[i];
+        for (var j = 0; j < col.length; ++j) {
+          compare(col.charAt(j)) && ret.push({ x: j, y: i });
+        }
+      }
+      return ret;
+    }
+    var exits = findAll(function (it) {
+      return it === "3";
+    });
+    
+    var AreaWidth;
+    var AreaHeight;
+    var enermies = [];
+    function removeEnermy(obj) {
+      var idx = enermies.indexOf(obj);
+      ~idx && enermies.splice(idx, 1);
+    }
+
+    GameWorld.Entity(
+      "Status",
+      {
+        created: function () {
+          this.message = "";
+          this.messageTmeout = 0;
+          this.gold = 0;
+          this.score = 0;
+          this.life = 0;
+        },
+        step: function (dt) {
+          if (0 < this.messageTmeout) {
+            this.messageTmeout -= dt;
+          } else {
+            this.message = "";
+          }
+        },
+        paint: function (ctx) {
+          GameUtils.text(
+            ctx,
+            {
+              x: tileSize,
+              y: tick,
+            },
+            "Score: " + this.score,
+            {
+              font: "bold 16px sans-serif",
+              textAlign: "left",
+              textBaseline: "middle",
+              fillStyle: "white",
+              strokeStyle: "black",
+            }
+          );
+          GameUtils.text(
+            ctx,
+            {
+              x: (AreaWidth - 1) * tileSize,
+              y: tick,
+            },
+            `Gold: ${this.gold} Life: ${10 > this.life ? '0'+this.life : this.life}`,
+            {
+              font: "bold 16px sans-serif",
+              textAlign: "right",
+              textBaseline: "middle",
+              fillStyle: "white",
+              strokeStyle: "black",
+            }
+          );
+          this.message &&
+            GameUtils.text(
+              ctx,
+              {
+                x: tileSize,
+                y: GameWorld.height - tick,
+              },
+              this.message,
+              {
+                font: "12px sans-serif",
+                textAlign: "left",
+                textBaseline: "middle",
+                fillStyle: "white",
+                strokeStyle: "black",
+              }
+            );
+        },
+        setMessage: function (value) {
+          this.message = value;
+          this.messageTmeout = 3;
+        },
+        setScore: function (value) {
+          this.scroe = value;
+        },
+        setGold: function (value) {
+          this.gold = value;
+        },
+        withdraw: function (value) {
+          if (0 >= value) return 0;
+          var ret = Math.min(value, this.gold);
+          this.gold -= ret;
+          return ret;
+        },
+        deposit: function (value) {
+          this.gold += value;
+        },
+        setLife: function (value) {
+          this.life = value;
+        },
+
+      },
+      { layer: 9 }
+    );
+    GameWorld.Entity(
+      "Enermy",
+      {
+        size: 14,
+        speed: 50,
+        tick: tick,
+        created: function (props) {
+          this.pt = {
+            x: props.pt.x * tileSize + this.tick,
+            y: props.pt.y * tileSize + this.tick,
+          };
+          this.updateRoute();
+        },
+        move: function (from, to, len) {
+          let dl = to - from;
+          return 1 > Math.abs(dl) ? to : 0 < dl ? from + len : from - len;
+        },
+        step: function (dt) {
+          try {
+            if (this.toPt) {
+              var len = this.speed * dt;
+              this.pt.x = this.move(this.pt.x, this.toPt.x, len);
+              this.pt.y = this.move(this.pt.y, this.toPt.y, len);
+            } else {
+              removeEnermy(this);
+              return this.delete();
+            }
+            if (
+              this.pt.x >= GameWorld.width ||
+              this.pt.y >= GameWorld.height
+            ) {
+              removeEnermy(this);
+              return this.delete();
+            }
+            this.isArrived() && this.nextRoute();
+          } catch (ex) {
+            console.error(ex);
+            removeEnermy(this);
+            this.delete();
+          }
+        },
+        updateRoute() {
+          var pt = {
+            x: Math.floor(this.pt.x / tileSize),
+            y: Math.floor(this.pt.y / tileSize),
+          };
+          var route = searchExit(pt, exits, AreaWidth, AreaHeight);
+          this.route = route.map(
+            function (it) {
+              return {
+                x: it.x * tileSize + this.tick,
+                y: it.y * tileSize + this.tick,
+              };
+            }.bind(this)
+          );
+          this.routeIdx = 0;
+          this.nextRoute();
+        },
+        nextRoute() {
+          ++this.routeIdx;
+          if (this.routeIdx < this.route.length) {
+            this.toPt = this.route[this.routeIdx];
+          } else {
+            this.toPt = null;
+          }
+        },
+        isArrived() {
+          if (this.route.length <= this.routeIdx) return false;
+          var toPt = this.route[this.routeIdx];
+          var resultX = false,
+            resultY = false;
+          if (2 > Math.abs(toPt.x - this.pt.x)) {
+            resultX = true;
+          }
+          if (2 > Math.abs(toPt.y - this.pt.y)) {
+            resultY = true;
+          }
+          return resultX && resultY;
+        },
+        paint: function (ctx) {
+          GameUtils.diamond(ctx, this.pt, this.size, this.size, {
+            fillStyle: "red",
+          });
+        },
+        overlap: function (pt) {
+          return !(
+            this.tick < Math.abs(pt.x - this.pt.x) ||
+            this.tick < Math.abs(pt.y - this.pt.y)
+          );
+        },
+      },
+      { layer: 1 }
+    );
+    var ptnWall = null;
+    GameWorld.Entity("Wall", {
+      created: function (props) {
+        this.idx = props.idx;
+        this.pt = props.pt;
+        this.width = props.size;
+        this.height = props.size;
+        this.type = props.type;
+        this.upgradeTime = 1;
+        this.upgradeTick = this.width / this.upgradeTime;
+        this.props = {
+          level: 1,
+          sellCost: 1,
+          upgradeCost: 2,
+        };
+      },
+      step: function (dt) {
+        if (0 < this.upgradeTimeout) {
+          this.upgradeTimeout = Math.max(this.upgradeTimeout - dt, 0);
+          this.upgradeBar += dt * this.upgradeTick;
+        } else {
+          if (0 === this.upgradeTimeout) {
+            this.upgradeTimeout = -1;
+            this.props.level += 1;
+            this.props.sellCost += this.props.upgradeCost >> 1;
+            this.props.upgradeCost *= 2;
+            GameWorld.emit('upgradeEnd', this);
+          }
+        }
+      },
+      paint: function (ctx) {
+        GameUtils.fillRect(ctx, this.pt, this.width, this.height, {
+          fillStyle: ptnWall[this.type],
+        });
+        if (0 < this.upgradeTimeout) {
+          GameUtils.fillRect(ctx, { x: this.pt.x, y: this.pt.y + this.height - 8 }, this.upgradeBar, 8, {
+            fillStyle: 'green',
+          });
+          GameUtils.rect(ctx, { x: this.pt.x + 0.5, y: this.pt.y + this.height + 0.5 - 8 }, this.width, 8, {
+            strokeStyle: 'black',
+          });
+        }
+      },
+      overlap: function (pt) {
+        if (this.width < Math.abs(this.pt.x - pt.x)) return false;
+        if (this.height < Math.abs(this.pt.y - pt.y)) return false;
+        return true;
+      },
+      upgrade: function () {
+        if (0 < this.upgradeTimeout) throw new Error('already upgrading')
+        this.upgradeTimeout = this.upgradeTime;
+        this.upgradeBar = 0;
+        GameWorld.emit('upgradeBegin', this);
+      },
+      sell: function () {
+        if (0 < this.upgradeTimeout) throw new Error('in upgrading')
+        this.delete();
+      },
+    }, { layer: 1 });
+
+    GameWorld.Entity("Platform", {
+      created: function (props) {
+        var self = this;
+        var gold = 10;
+        var life = 10;
+
+        this.metaItems = {
+          wall: {
+            price: 1,
+            create: function (idx) {
+              return self.newWall(idx, 1);
+            },
+          }
+        };
+        this.pointer = GameWorld.Pointer;
+        this.grid = props.grid;
+        this.status = props.status;
+        this.status.setGold(gold);
+        this.status.setLife(life);
+
+        var height = wallMeta.length;
+        var width = wallMeta[0] ? wallMeta[0].length : 0;
+        var tickWidth = width << 1;
+        let types = { 1: 1, 2: 2, 3: 3, 8: 0 };
+        for (let y = 0; y < height; ++y) {
+          for (let x = 0; x < width; ++x) {
+            let type = types[wallMeta[y].charAt(x)];
+            if (undefined === type) continue;
+            var gridIdx = (x + y * tickWidth) << 1;
+            this.newWall(gridIdx, type);
+          }
+        }
+      },
+      newWall: function (idx, type) {
+        var pt = this.grid.posOfIndex(idx);
+        var ret = new GameWorld.Entity.Wall({ pt: pt, size: tileSize, idx: idx, type: type });
+        this.grid.pushItem(idx, ret);
+        return ret;
+      },
+      sell: function () {
+        if (!this.selected) return;
+        this.selected.sell();
+        this.grid.removeItem(this.selected.idx);
+        this.selected = null;
+      },
+      upgrade: function () {
+        if (!this.selected) return;
+        this.selected.upgrade();
+      },
+      step: function (dt) {
+        if (!this.pointer) return;
+        if (this.pointer.pos) {
+          let gridIdx = this.grid.indexOfPos(this.pointer.pos);
+          this.hover = this.grid.posOfIndex(gridIdx);
+          this.hover.disabled = !!this.grid.getItem(gridIdx);
+          if (this.pointer.click) {
+            this.pointer.click = false;
+            this.selected && GameWorld.emit('wallup', this.selected);
+            var item = this.grid.getItem(gridIdx);
+            if (!item && currentItem) {
+              var metaInfo = this.metaItems[currentItem];
+              var price = this.status.withdraw(metaInfo.price);
+              if (0 < price) {
+                item = metaInfo.create(gridIdx);
+              }
+            }
+            this.selected = 1 === (item && item.type) ? item : null;
+            this.selected && GameWorld.emit('walldown', this.selected);
+          }
+        } else {
+          this.hover = null;
+        }
+      },
+      paint: function (ctx) {
+        this.hover &&
+          GameUtils.rect(ctx, this.hover, tileSize, tileSize, {
+            strokeStyle: this.hover.disabled ? "red" : "green",
+          });
+        this.selected &&
+          GameUtils.rect(ctx, this.selected.pt, tileSize, tileSize, {
+            strokeStyle: "black",
+            lineWidth: 2,
+          });
+      },
+    }, { layer: 5 });
+
+    GameWorld.Entity("Base", {
+      created: function (props) {
+        Object.assign(this, props);
+        this.status = [];
+        this.items = [];
+        this.gridWidth = Math.floor(this.width / this.size);
+        this.gridHeight = Math.floor(this.height / this.size);
+      },
+      paint: function (ctx) {
+        let x1 = this.x + this.width;
+        let y1 = this.y + this.height;
+        for (let x = this.x; x < x1; x += this.size) {
+          this.line(ctx, x, this.y, x, y1);
+        }
+        this.line(ctx, x1, this.y, x1, y1);
+        for (let y = this.y; y < y1; y += this.size) {
+          this.line(ctx, this.x, y, x1, y);
+        }
+        this.line(ctx, x1, y1, x1, y1);;
+      },
+      line: function (ctx, x0, y0, x1, y1) {
+        GameUtils.line(
+          ctx,
+          { x: x0 - 0.5, y: y0 - 0.5 },
+          { x: x1 - 0.5, y: y1 - 0.5 },
+          { lineDash: [5, 5] }
+        );
+      },
+      pushItem: function (gridIdx, item) {
+        if (this.getItem(gridIdx)) return;
+        this.setItemStatus(gridIdx, item);
+        this.items.push(item);
+        return item;
+      },
+      removeItem: function (gridIdx) {
+        let item = this.getItem(gridIdx);
+        if (!item) return;
+        let idx = this.items.indexOf(item);
+        ~idx && this.items.splice(idx, 1);
+        this.setItemStatus(item.idx, undefined);
+      },
+      getItem: function (idx) {
+        return (
+          this.status[idx] ||
+          this.status[idx + 1] ||
+          this.status[this.gridWidth + idx] ||
+          this.status[this.gridWidth + idx + 1]
+        );
+      },
+      setItemStatus: function (idx, value) {
+        this.status[idx] =
+          this.status[idx + 1] =
+          this.status[this.gridWidth + idx] =
+          this.status[this.gridWidth + idx + 1] =
+          value;
+      },
+      indexOfPos: function (pos) {
+        let gridX = Math.floor(pos.x / this.size - 0.5);
+        let gridY = Math.floor(pos.y / this.size - 0.5);
+        return gridY * this.gridWidth + gridX;
+      },
+      posOfIndex: function (idx) {
+        let gridX = idx % this.gridWidth;
+        let gridY = Math.floor(idx / this.gridWidth);
+        return { x: gridX * this.size, y: gridY * this.size };
+      },
+    }, { layer: 0 });
+
+    function searchExit(entry, exits, width, height) {
+      var working = new GameUtils.Heap(function (l, r) {
+        return l.f < r.f;
+      });
+      var visitedIdx = [];
+      var indes = [];
+      var done;
+      function indexOf(pt) {
+        return pt.y * width + pt.x;
+      }
+      function h(pt) {
+        var ret = exits.map(function (it) {
+          return Math.abs(it.x - pt.x) + Math.abs(it.y - pt.y);
+        });
+        return Math.min.apply(null, ret);
+      }
+      var existIdxs = exits.map(function (it) {
+        return indexOf(it);
+      });
+      let start = Object.assign({}, entry, {
+        index: indexOf(entry),
+        g: 0,
+        order: 0,
+        h: h(entry),
+      });
+      working.push(start);
+      let n;
+      while ((n = working.pop())) {
+        if (visitedIdx[n.index]) continue;
+        visitedIdx[n.index] = true;
+        if (~existIdxs.indexOf(n.index)) {
+          working.clear();
+          done = n;
+          break;
+        }
+        let list = [
+          { x: n.x - 1, y: n.y },
+          { x: n.x, y: n.y + 1 },
+          { x: n.x, y: n.y - 1 },
+          { x: n.x + 1, y: n.y },
+        ];
+        list.forEach(function (it) {
+          it.index = indexOf(it);
+        });
+        list = list
+          .filter(function (it) {
+            return 0 <= it.x && 0 <= it.y && it.x < width && it.y < height;
+          })
+          .filter(function (it) {
+            return !(
+              isWall(it.x, it.y, "1") ||
+              isWall(it.x, it.y, "8") ||
+              visitedIdx[it.index]
+            );
+          });
+        list.forEach(function (it) {
+          it.h = h(it);
+          it.g = n.g + 1;
+          it.f = it.h + it.g;
+          it.parent = n;
+          it.order = n.order + 1;
+        });
+        list.forEach(function (it) {
+          let item = indes[it.index];
+          if (!item || item.f > it.f) {
+            indes[it.index] = it;
+          }
+          working.push(it);
+        });
+      }
+      var ret = [];
+      var next = done;
+      while (next) {
+        ret.unshift({ x: next.x, y: next.y, index: next.index });
+        next = next.parent;
+      }
+      return ret;
+    }
+
+    function startup() {
+      AreaWidth = Math.floor(GameWorld.width / tileSize);
+      AreaHeight = Math.floor(GameWorld.height / tileSize);
+      ptnWall = [
+        GameWorld.createPattern(5, 2, 4, "lightgray", "gray"), // wall(fixed)
+        GameWorld.createPattern(5, 2, 3, "lightgray", "gray"), // wall
+        GameWorld.createPattern(5, 3, 1, "lightgray", "gray"), // entry
+        GameWorld.createPattern(5, 3, 1, "lightgray", "gray"), // exit
+      ];
+      let base = new GameWorld.Entity.Base({
+        x: 0,
+        y: 0,
+        width: GameWorld.width,
+        height: GameWorld.height,
+        size: tileSize / 2,
+      });
+      var status = new GameWorld.Entity.Status();
+      platform = new GameWorld.Entity.Platform({ grid: base, status: status });
+      // setInterval(function () {
+      //   enermies.push(new GameWorld.Entity.Enermy({ pt: { x: 0, y: 5 } }));
+      // }, 1000);
+      GameWorld.on("walldown", function (ev) {
+        selectedEntity = ev.detail;
+        btnUpgrade.disabled = false;
+        btnSell.disabled = false;
+        upgradeCost.innerText = selectedEntity.props.upgradeCost;
+        sellCost.innerText = selectedEntity.props.sellCost;
+      });
+      GameWorld.on("wallup", function (ev) {
+        selectedEntity = null;
+        btnUpgrade.disabled = true;
+        btnSell.disabled = true;
+        upgradeCost.innerText = "**";
+        sellCost.innerText = "**";
+      });
+      GameWorld.on("upgradeEnd", function (ev) {
+        if (selectedEntity) {
+          upgradeCost.innerText = selectedEntity.props.upgradeCost;
+          sellCost.innerText = selectedEntity.props.sellCost;
+        }
+      });
+    }
+    window.addEventListener("load", function () {
+      GameWorld.initialize("canvas1", startup);
+    });
+  </script>
+</body>
+</html>
