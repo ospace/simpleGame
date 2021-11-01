@@ -99,11 +99,6 @@
     
     var AreaWidth;
     var AreaHeight;
-    var enermies = [];
-    function removeEnermy(obj) {
-      var idx = enermies.indexOf(obj);
-      ~idx && enermies.splice(idx, 1);
-    }
 
     GameWorld.Entity(
       "Status",
@@ -199,13 +194,13 @@
     GameWorld.Entity(
       "Enermy",
       {
-        size: 14,
+        size: tick,
+        half: tick / 2,
         speed: 50,
-        tick: tick,
         created: function (props) {
           this.pt = {
-            x: props.pt.x * tileSize + this.tick,
-            y: props.pt.y * tileSize + this.tick,
+            x: props.pt.x * this.size + this.half,
+            y: props.pt.y * this.size + this.half,
           };
           this.updateRoute();
         },
@@ -215,39 +210,41 @@
         },
         step: function (dt) {
           try {
-            if (this.toPt) {
-              var len = this.speed * dt;
-              this.pt.x = this.move(this.pt.x, this.toPt.x, len);
-              this.pt.y = this.move(this.pt.y, this.toPt.y, len);
-            } else {
-              removeEnermy(this);
-              return this.delete();
-            }
+            var len = this.speed * dt;
+            this.pt.x += len;
+            // if (this.toPt) {
+            //   var len = this.speed * dt;
+            //   this.pt.x = this.move(this.pt.x, this.toPt.x, len);
+            //   this.pt.y = this.move(this.pt.y, this.toPt.y, len);
+            // } else {
+            //   //removeEnermy(this);
+            //   return this.delete();
+            // }
             if (
               this.pt.x >= GameWorld.width ||
               this.pt.y >= GameWorld.height
             ) {
-              removeEnermy(this);
+              //removeEnermy(this);
               return this.delete();
             }
-            this.isArrived() && this.nextRoute();
+            //this.isArrived() && this.nextRoute();
           } catch (ex) {
             console.error(ex);
-            removeEnermy(this);
+            // removeEnermy(this);
             this.delete();
           }
         },
         updateRoute() {
           var pt = {
-            x: Math.floor(this.pt.x / tileSize),
-            y: Math.floor(this.pt.y / tileSize),
+            x: Math.floor(this.pt.x / this.size),
+            y: Math.floor(this.pt.y / this.size),
           };
           var route = searchExit(pt, exits, AreaWidth, AreaHeight);
           this.route = route.map(
             function (it) {
               return {
-                x: it.x * tileSize + this.tick,
-                y: it.y * tileSize + this.tick,
+                x: it.x * this.size + this.half,
+                y: it.y * this.size + this.half,
               };
             }.bind(this)
           );
@@ -369,6 +366,8 @@
         this.status.setGold(gold);
         this.status.setLife(life);
 
+        this.entry = [{ x: 0, y: 10 }];
+
         var height = wallMeta.length;
         var width = wallMeta[0] ? wallMeta[0].length : 0;
         var tickWidth = width << 1;
@@ -381,6 +380,22 @@
             this.newWall(gridIdx, type);
           }
         }
+
+        this.enermies = [];
+
+        this.newEnermy();
+      },
+      removeEnermy: function(obj) {
+        if (!obj) return;
+        var idx = this.enermies.indexOf(obj);
+        ~idx && enermies.splice(idx, 1);
+        obj.delete();
+      },
+      newEnermy: function (pt) {
+        pt = pt || { x: 0, y: 5 };
+        var ret = new GameWorld.Entity.Enermy({ pt: pt });
+        this.enermies.push(ret);
+        return ret;
       },
       newWall: function (idx, type) {
         var pt = this.grid.posOfIndex(idx);
@@ -600,9 +615,6 @@
       });
       var status = new GameWorld.Entity.Status();
       platform = new GameWorld.Entity.Platform({ grid: base, status: status });
-      // setInterval(function () {
-      //   enermies.push(new GameWorld.Entity.Enermy({ pt: { x: 0, y: 5 } }));
-      // }, 1000);
       GameWorld.on("walldown", function (ev) {
         selectedEntity = ev.detail;
         btnUpgrade.disabled = false;
