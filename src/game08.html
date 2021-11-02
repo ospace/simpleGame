@@ -20,6 +20,7 @@
     <canvas id="canvas1" width="510" height="300"></canvas>
   </div>
   <div>
+    <button id="btnNextWave" onclick="onNextWave(event)">Next wave</button>
     <button id="btnCanon" onclick="onCanon(event)">Canon(10)</button>
     <button id="btnWall" onclick="onWall(event)">Wall(1)</button>
     <button id="btnUpgrade" disabled="true" onclick="onUpgrade(event)">
@@ -38,6 +39,10 @@
     var platform;
     var selectedEntity;
     var currentItem = null;
+    function onNextWave(ev) {
+      if (!platform) return;
+      platform.nextWave();
+    }
     function onCanon(ev) {
       disableClass(btnWall.classList, 'active');
       enableClass(btnCanon.classList, 'active');
@@ -64,7 +69,6 @@
     function disableClass(classList, className) {
       classList.contains(className) && classList.remove(className);
     }
-    
     var tileSize = 30;
     var tick = tileSize / 2;
     var wallMeta = [
@@ -96,10 +100,8 @@
     var exits = findAll(function (it) {
       return it === "3";
     });
-    
     var AreaWidth;
     var AreaHeight;
-
     GameWorld.Entity(
       "Status",
       {
@@ -139,7 +141,7 @@
               x: (AreaWidth - 1) * tileSize,
               y: tick,
             },
-            `Gold: ${this.gold} Life: ${10 > this.life ? '0'+this.life : this.life}`,
+            `Gold: ${this.gold} Life: ${10 > this.life ? '0' + this.life : this.life}`,
             {
               font: "bold 16px sans-serif",
               textAlign: "right",
@@ -187,7 +189,6 @@
         setLife: function (value) {
           this.life = value;
         },
-
       },
       { layer: 9 }
     );
@@ -198,10 +199,11 @@
         half: tick / 2,
         speed: 50,
         created: function (props) {
-          this.pt = {
-            x: props.pt.x * this.size + this.half,
-            y: props.pt.y * this.size + this.half,
-          };
+          this.pt = props.pt;
+          this.grid = props.grid;
+          this.fromPt = this.grid.centerOfXY(this.pt.x, this.pt.y);
+          console.log('> Enermy created - fromPt:', this.fromPt);
+          this.toPt = null;
           this.updateRoute();
         },
         move: function (from, to, len) {
@@ -210,24 +212,22 @@
         },
         step: function (dt) {
           try {
-            var len = this.speed * dt;
-            this.pt.x += len;
-            // if (this.toPt) {
-            //   var len = this.speed * dt;
-            //   this.pt.x = this.move(this.pt.x, this.toPt.x, len);
-            //   this.pt.y = this.move(this.pt.y, this.toPt.y, len);
-            // } else {
-            //   //removeEnermy(this);
-            //   return this.delete();
-            // }
+            if (this.toPt) {
+              var len = this.speed * dt;
+              this.fromPt.x = this.move(this.fromPt.x, this.toPt.x, len);
+              this.fromPt.y = this.move(this.fromPt.y, this.toPt.y, len);
+              this.isArrived() && this.nextRoute();
+            }
             if (
-              this.pt.x >= GameWorld.width ||
-              this.pt.y >= GameWorld.height
+              0 > this.fromPt.x ||
+              0 > this.fromPt.y ||
+              this.fromPt.x >= GameWorld.width ||
+              this.fromPt.y >= GameWorld.height
             ) {
               //removeEnermy(this);
               return this.delete();
             }
-            //this.isArrived() && this.nextRoute();
+            
           } catch (ex) {
             console.error(ex);
             // removeEnermy(this);
@@ -235,52 +235,48 @@
           }
         },
         updateRoute() {
-          var pt = {
-            x: Math.floor(this.pt.x / this.size),
-            y: Math.floor(this.pt.y / this.size),
-          };
-          var route = searchExit(pt, exits, AreaWidth, AreaHeight);
-          this.route = route.map(
-            function (it) {
-              return {
-                x: it.x * this.size + this.half,
-                y: it.y * this.size + this.half,
-              };
-            }.bind(this)
-          );
+          var pt = this.grid.toGridPos(this.fromPt);
+          this.route = this.grid.search(pt);
           this.routeIdx = 0;
+          console.log('> Enermy updateRoute - pt:', JSON.stringify(this.pt), JSON.stringify(this.fromPt));
+          console.log('> Enermy updateRoute - route:', JSON.stringify(this.route));
           this.nextRoute();
         },
         nextRoute() {
           ++this.routeIdx;
           if (this.routeIdx < this.route.length) {
-            this.toPt = this.route[this.routeIdx];
+            this.pt = this.route[this.routeIdx];
+            this.toPt = this.grid.centerOfXY(this.pt.x, this.pt.y);
           } else {
+            // exit
             this.toPt = null;
           }
+          console.log('> Enermy nextRoute - toPt:', this.routeIdx, this.pt, '>', this.toPt);
         },
         isArrived() {
-          if (this.route.length <= this.routeIdx) return false;
-          var toPt = this.route[this.routeIdx];
+          if (!this.toPt) return false;
           var resultX = false,
             resultY = false;
-          if (2 > Math.abs(toPt.x - this.pt.x)) {
+          var dx = Math.abs(this.toPt.x - this.fromPt.x);
+          var dy = Math.abs(this.toPt.y - this.fromPt.y);
+          if (2 > dx) {
             resultX = true;
           }
-          if (2 > Math.abs(toPt.y - this.pt.y)) {
+          if (2 > dy) {
             resultY = true;
           }
+          console.log('> isArrived:', dx, dy);
           return resultX && resultY;
         },
         paint: function (ctx) {
-          GameUtils.diamond(ctx, this.pt, this.size, this.size, {
+          GameUtils.diamond(ctx, this.fromPt, this.size, this.size, {
             fillStyle: "red",
           });
         },
         overlap: function (pt) {
           return !(
-            this.tick < Math.abs(pt.x - this.pt.x) ||
-            this.tick < Math.abs(pt.y - this.pt.y)
+            this.tick < Math.abs(pt.x - this.fromPt.x) ||
+            this.tick < Math.abs(pt.y - this.fromPt.y)
           );
         },
       },
@@ -345,13 +341,11 @@
         this.delete();
       },
     }, { layer: 1 });
-
     GameWorld.Entity("Platform", {
       created: function (props) {
         var self = this;
         var gold = 10;
         var life = 10;
-
         this.metaItems = {
           wall: {
             price: 1,
@@ -365,9 +359,21 @@
         this.status = props.status;
         this.status.setGold(gold);
         this.status.setLife(life);
-
-        this.entry = [{ x: 0, y: 10 }];
-
+        this.entry = findAll(function (it) {
+          return it === "2";
+        }).reduce(function (prev, it) {
+          prev.push({ x: 0, y: it.y << 1 });
+          prev.push({ x: 0, y: (it.y << 1) + 1 });
+          return prev;
+        }, [])
+        this.exits = findAll(function (it) {
+          return it === "3";
+        }).reduce(function (prev, it) {
+          prev.push({ x: it.x << 1, y: it.y << 1 });
+          prev.push({ x: it.x << 1, y: (it.y << 1) + 1 });
+          return prev;
+        }, []);
+        this.grid.setExits(this.exits);
         var height = wallMeta.length;
         var width = wallMeta[0] ? wallMeta[0].length : 0;
         var tickWidth = width << 1;
@@ -380,20 +386,23 @@
             this.newWall(gridIdx, type);
           }
         }
-
         this.enermies = [];
-
-        this.newEnermy();
       },
-      removeEnermy: function(obj) {
+      removeEnermy: function (obj) {
         if (!obj) return;
         var idx = this.enermies.indexOf(obj);
         ~idx && enermies.splice(idx, 1);
         obj.delete();
       },
+      nextWave: function () {
+        var idx = Math.floor(Math.random() * this.entry.length);
+        var entry = this.entry[idx];
+        console.log('nextWave -', idx, entry);
+        this.newEnermy(entry);
+      },
       newEnermy: function (pt) {
         pt = pt || { x: 0, y: 5 };
-        var ret = new GameWorld.Entity.Enermy({ pt: pt });
+        var ret = new GameWorld.Entity.Enermy({ pt: pt, grid: this.grid });
         this.enermies.push(ret);
         return ret;
       },
@@ -449,12 +458,12 @@
           });
       },
     }, { layer: 5 });
-
     GameWorld.Entity("Base", {
       created: function (props) {
         Object.assign(this, props);
         this.status = [];
         this.items = [];
+        this.halfOfSize = this.size / 2;
         this.gridWidth = Math.floor(this.width / this.size);
         this.gridHeight = Math.floor(this.height / this.size);
       },
@@ -507,96 +516,38 @@
           value;
       },
       indexOfPos: function (pos) {
-        let gridX = Math.floor(pos.x / this.size - 0.5);
-        let gridY = Math.floor(pos.y / this.size - 0.5);
+        return this.indexOfXY(pos.x, pos.y);
+      },
+      indexOfXY: function (x, y) {
+        var gridX = Math.floor(x / this.size - 0.5);
+        var gridY = Math.floor(y / this.size - 0.5);
         return gridY * this.gridWidth + gridX;
       },
       posOfIndex: function (idx) {
-        let gridX = idx % this.gridWidth;
-        let gridY = Math.floor(idx / this.gridWidth);
+        var gridX = idx % this.gridWidth;
+        var gridY = Math.floor(idx / this.gridWidth);
         return { x: gridX * this.size, y: gridY * this.size };
       },
+      toGridPos: function (pos) {
+        return { x: Math.floor(pos.x / this.size), y: Math.floor(pos.y / this.size) };
+      },
+      centerOfXY: function (gridX, gridY) {
+        return { x: gridX * this.size + this.halfOfSize, y: gridY * this.size + this.halfOfSize };
+      },
+      setExits: function (value) {
+        this.exits = value;
+      },
+      search: function (entry) {
+        var self = this;
+        console.log('> search - entry:', entry, this.exits);
+        return GameUtils.searchSimple(entry, this.exits, this.gridWidth, this.gridHeight, function (x, y) {
+          var idx = self.indexOfXY(x, y);
+          console.log('> search - isPassable:', x, y, idx);
+          if (!~idx) return false;
+          return !!self.getItem(idx);
+        });
+      },
     }, { layer: 0 });
-
-    function searchExit(entry, exits, width, height) {
-      var working = new GameUtils.Heap(function (l, r) {
-        return l.f < r.f;
-      });
-      var visitedIdx = [];
-      var indes = [];
-      var done;
-      function indexOf(pt) {
-        return pt.y * width + pt.x;
-      }
-      function h(pt) {
-        var ret = exits.map(function (it) {
-          return Math.abs(it.x - pt.x) + Math.abs(it.y - pt.y);
-        });
-        return Math.min.apply(null, ret);
-      }
-      var existIdxs = exits.map(function (it) {
-        return indexOf(it);
-      });
-      let start = Object.assign({}, entry, {
-        index: indexOf(entry),
-        g: 0,
-        order: 0,
-        h: h(entry),
-      });
-      working.push(start);
-      let n;
-      while ((n = working.pop())) {
-        if (visitedIdx[n.index]) continue;
-        visitedIdx[n.index] = true;
-        if (~existIdxs.indexOf(n.index)) {
-          working.clear();
-          done = n;
-          break;
-        }
-        let list = [
-          { x: n.x - 1, y: n.y },
-          { x: n.x, y: n.y + 1 },
-          { x: n.x, y: n.y - 1 },
-          { x: n.x + 1, y: n.y },
-        ];
-        list.forEach(function (it) {
-          it.index = indexOf(it);
-        });
-        list = list
-          .filter(function (it) {
-            return 0 <= it.x && 0 <= it.y && it.x < width && it.y < height;
-          })
-          .filter(function (it) {
-            return !(
-              isWall(it.x, it.y, "1") ||
-              isWall(it.x, it.y, "8") ||
-              visitedIdx[it.index]
-            );
-          });
-        list.forEach(function (it) {
-          it.h = h(it);
-          it.g = n.g + 1;
-          it.f = it.h + it.g;
-          it.parent = n;
-          it.order = n.order + 1;
-        });
-        list.forEach(function (it) {
-          let item = indes[it.index];
-          if (!item || item.f > it.f) {
-            indes[it.index] = it;
-          }
-          working.push(it);
-        });
-      }
-      var ret = [];
-      var next = done;
-      while (next) {
-        ret.unshift({ x: next.x, y: next.y, index: next.index });
-        next = next.parent;
-      }
-      return ret;
-    }
-
     function startup() {
       AreaWidth = Math.floor(GameWorld.width / tileSize);
       AreaHeight = Math.floor(GameWorld.height / tileSize);
@@ -642,3 +593,4 @@
   </script>
 </body>
 </html>
+
