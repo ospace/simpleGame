@@ -36,28 +36,28 @@
     // https://blog.unity.com/kr/technology/on-dots-entity-component-system
     // https://everyday-devup.tistory.com/68
     // https://javart.tistory.com/80
-    var platform;
-    var selectedEntity;
-    var currentItem = null;
+    var g_platform;
+    var g_selectedEntity;
+    var g_currentItem = null;
     function onNextWave(ev) {
-      if (!platform) return;
-      platform.nextWave();
+      if (!g_platform) return;
+      g_platform.nextWave();
     }
     function onCanon(ev) {
       disableClass(btnWall.classList, 'active');
       enableClass(btnCanon.classList, 'active');
-      currentItem = 'canon';
+      g_currentItem = 'canon';
     }
     function onWall(ev) {
       enableClass(btnWall.classList, 'active');
       disableClass(btnCanon.classList, 'active');
-      currentItem = 'wall';
+      g_currentItem = 'wall';
     }
     function onUpgrade(ev) {
-      platform.upgrade();
+      g_platform.upgrade();
     }
     function onSell(ev) {
-      platform.sell();
+      g_platform.sell();
       btnUpgrade.disabled = true;
       btnSell.disabled = true;
       upgradeCost.innerText = "**";
@@ -195,14 +195,14 @@
     GameWorld.Entity(
       "Enermy",
       {
+        type: 'enermy',
         size: tick,
         half: tick / 2,
-        speed: 50,
+        speed: 100,
         created: function (props) {
           this.pt = props.pt;
           this.grid = props.grid;
           this.fromPt = this.grid.centerOfXY(this.pt.x, this.pt.y);
-          console.log('> Enermy created - fromPt:', this.fromPt);
           this.toPt = null;
           this.updateRoute();
         },
@@ -222,15 +222,16 @@
               0 > this.fromPt.x ||
               0 > this.fromPt.y ||
               this.fromPt.x >= GameWorld.width ||
-              this.fromPt.y >= GameWorld.height
+              this.fromPt.y >= GameWorld.height || this.isFin
             ) {
               //removeEnermy(this);
+              GameWorld.emit('enermyDeleted', this);
               return this.delete();
             }
-            
           } catch (ex) {
             console.error(ex);
             // removeEnermy(this);
+            GameWorld.emit('enermyDeleted', this);
             this.delete();
           }
         },
@@ -238,8 +239,6 @@
           var pt = this.grid.toGridPos(this.fromPt);
           this.route = this.grid.search(pt);
           this.routeIdx = 0;
-          console.log('> Enermy updateRoute - pt:', JSON.stringify(this.pt), JSON.stringify(this.fromPt));
-          console.log('> Enermy updateRoute - route:', JSON.stringify(this.route));
           this.nextRoute();
         },
         nextRoute() {
@@ -250,23 +249,15 @@
           } else {
             // exit
             this.toPt = null;
+            this.isFin = true;
           }
-          console.log('> Enermy nextRoute - toPt:', this.routeIdx, this.pt, '>', this.toPt);
         },
         isArrived() {
           if (!this.toPt) return false;
-          var resultX = false,
-            resultY = false;
           var dx = Math.abs(this.toPt.x - this.fromPt.x);
           var dy = Math.abs(this.toPt.y - this.fromPt.y);
-          if (2 > dx) {
-            resultX = true;
-          }
-          if (2 > dy) {
-            resultY = true;
-          }
-          console.log('> isArrived:', dx, dy);
-          return resultX && resultY;
+          if (2 > dx && 2 > dy) return true;
+          return false;
         },
         paint: function (ctx) {
           GameUtils.diamond(ctx, this.fromPt, this.size, this.size, {
@@ -284,6 +275,7 @@
     );
     var ptnWall = null;
     GameWorld.Entity("Wall", {
+      type: 'wall',
       created: function (props) {
         this.idx = props.idx;
         this.pt = props.pt;
@@ -342,6 +334,7 @@
       },
     }, { layer: 1 });
     GameWorld.Entity("Platform", {
+      type: 'paltform',
       created: function (props) {
         var self = this;
         var gold = 10;
@@ -369,8 +362,8 @@
         this.exits = findAll(function (it) {
           return it === "3";
         }).reduce(function (prev, it) {
-          prev.push({ x: it.x << 1, y: it.y << 1 });
-          prev.push({ x: it.x << 1, y: (it.y << 1) + 1 });
+          prev.push({ x: (it.x << 1) + 1, y: it.y << 1 });
+          prev.push({ x: (it.x << 1) + 1, y: (it.y << 1) + 1 });
           return prev;
         }, []);
         this.grid.setExits(this.exits);
@@ -387,17 +380,21 @@
           }
         }
         this.enermies = [];
+        GameWorld.on("enermyDeleted", this.onEnermyDeleted.bind(this));
       },
       removeEnermy: function (obj) {
         if (!obj) return;
         var idx = this.enermies.indexOf(obj);
-        ~idx && enermies.splice(idx, 1);
+        ~idx && this.enermies.splice(idx, 1);
         obj.delete();
+      },
+      onEnermyDeleted: function (obj) {
+        var enermy = obj.detail;
+        this.removeEnermy(enermy);
       },
       nextWave: function () {
         var idx = Math.floor(Math.random() * this.entry.length);
         var entry = this.entry[idx];
-        console.log('nextWave -', idx, entry);
         this.newEnermy(entry);
       },
       newEnermy: function (pt) {
@@ -430,21 +427,24 @@
           this.hover.disabled = !!this.grid.getItem(gridIdx);
           if (this.pointer.click) {
             this.pointer.click = false;
-            this.selected && GameWorld.emit('wallup', this.selected);
-            var item = this.grid.getItem(gridIdx);
-            if (!item && currentItem) {
-              var metaInfo = this.metaItems[currentItem];
-              var price = this.status.withdraw(metaInfo.price);
-              if (0 < price) {
-                item = metaInfo.create(gridIdx);
-              }
-            }
-            this.selected = 1 === (item && item.type) ? item : null;
-            this.selected && GameWorld.emit('walldown', this.selected);
+            this.onClick(gridIdx);
           }
         } else {
           this.hover = null;
         }
+      },
+      onClick: function (gridIdx) {
+        this.selected && GameWorld.emit('wallup', this.selected);
+        var item = this.grid.getItem(gridIdx);
+        if (!item && g_currentItem) {
+          var metaInfo = this.metaItems[g_currentItem];
+          var price = this.status.withdraw(metaInfo.price);
+          if (0 < price) {
+            item = metaInfo.create(gridIdx);
+          }
+        }
+        this.selected = 1 === (item && item.type) ? item : null;
+        this.selected && GameWorld.emit('walldown', this.selected);
       },
       paint: function (ctx) {
         this.hover &&
@@ -459,6 +459,7 @@
       },
     }, { layer: 5 });
     GameWorld.Entity("Base", {
+      type: 'base',
       created: function (props) {
         Object.assign(this, props);
         this.status = [];
@@ -516,11 +517,11 @@
           value;
       },
       indexOfPos: function (pos) {
-        return this.indexOfXY(pos.x, pos.y);
+        var gridX = Math.floor(pos.x / this.size - 0.5);
+        var gridY = Math.floor(pos.y / this.size - 0.5);
+        return this.indexOfXY(gridX, gridY);
       },
-      indexOfXY: function (x, y) {
-        var gridX = Math.floor(x / this.size - 0.5);
-        var gridY = Math.floor(y / this.size - 0.5);
+      indexOfXY: function (gridX, gridY) {
         return gridY * this.gridWidth + gridX;
       },
       posOfIndex: function (idx) {
@@ -539,12 +540,11 @@
       },
       search: function (entry) {
         var self = this;
-        console.log('> search - entry:', entry, this.exits);
         return GameUtils.searchSimple(entry, this.exits, this.gridWidth, this.gridHeight, function (x, y) {
           var idx = self.indexOfXY(x, y);
-          console.log('> search - isPassable:', x, y, idx);
           if (!~idx) return false;
-          return !!self.getItem(idx);
+          var ret = self.getItem(idx);
+          return !ret || (2 === ret.type || 3 === ret.type) ? true : false;
         });
       },
     }, { layer: 0 });
@@ -565,25 +565,25 @@
         size: tileSize / 2,
       });
       var status = new GameWorld.Entity.Status();
-      platform = new GameWorld.Entity.Platform({ grid: base, status: status });
+      g_platform = new GameWorld.Entity.Platform({ grid: base, status: status });
       GameWorld.on("walldown", function (ev) {
-        selectedEntity = ev.detail;
+        g_selectedEntity = ev.detail;
         btnUpgrade.disabled = false;
         btnSell.disabled = false;
-        upgradeCost.innerText = selectedEntity.props.upgradeCost;
-        sellCost.innerText = selectedEntity.props.sellCost;
+        upgradeCost.innerText = g_selectedEntity.props.upgradeCost;
+        sellCost.innerText = g_selectedEntity.props.sellCost;
       });
       GameWorld.on("wallup", function (ev) {
-        selectedEntity = null;
+        g_selectedEntity = null;
         btnUpgrade.disabled = true;
         btnSell.disabled = true;
         upgradeCost.innerText = "**";
         sellCost.innerText = "**";
       });
       GameWorld.on("upgradeEnd", function (ev) {
-        if (selectedEntity) {
-          upgradeCost.innerText = selectedEntity.props.upgradeCost;
-          sellCost.innerText = selectedEntity.props.sellCost;
+        if (g_selectedEntity) {
+          upgradeCost.innerText = g_selectedEntity.props.upgradeCost;
+          sellCost.innerText = g_selectedEntity.props.sellCost;
         }
       });
     }
