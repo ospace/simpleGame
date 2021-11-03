@@ -412,7 +412,7 @@
       sell: function () {
         if (!this.selected) return;
         this.selected.sell();
-        this.grid.removeItem(this.selected.idx);
+        this.removeItem(this.selected);
         this.selected = null;
       },
       upgrade: function () {
@@ -441,10 +441,26 @@
           var price = this.status.withdraw(metaInfo.price);
           if (0 < price) {
             item = metaInfo.create(gridIdx);
+            if  (this.searchable()) {
+              this.enermies.forEach(function(it) { it.updateRoute(); });
+            } else {
+              this.removeItem(item);
+              item =  null;
+              this.status.deposit(price);
+            }
           }
         }
         this.selected = 1 === (item && item.type) ? item : null;
         this.selected && GameWorld.emit('walldown', this.selected);
+      },
+      removeItem: function(item) {
+        if (!item)  return;
+        this.grid && 0 <= item.idx && this.grid.removeItem(item.idx);
+        item.delete();
+      },
+      searchable: function() {
+        var ret = this.grid.search(this.entry[0]);
+        return ret && ret.length;
       },
       paint: function (ctx) {
         this.hover &&
@@ -543,7 +559,7 @@
         return GameUtils.searchSimple(entry, this.exits, this.gridWidth, this.gridHeight, function (x, y) {
           var idx = self.indexOfXY(x, y);
           if (!~idx) return false;
-          var ret = self.getItem(idx);
+          var ret = self.status[idx];
           return !ret || (2 === ret.type || 3 === ret.type) ? true : false;
         });
       },
