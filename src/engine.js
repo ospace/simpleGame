@@ -34,7 +34,7 @@
             var dt = (curTime - lastRenderTime_)/1000;
             if(dt > maxTime_) { dt = maxTime_; }
             GameWorld.clean();
-            self.action('step', dt);
+            self.action('update', dt);
             GameWorld.finally();
             self.action('paint', ctx_);
             lastRenderTime_ = curTime;
@@ -140,6 +140,15 @@
         }
     }
 
+    function readonly(value) {
+        return {
+            enumerable: false,
+            configurable: false,
+            writable: false,
+            value: value,
+        }
+    }
+
     var render_ = new RenderManager;
     var input_ = new InputManager;
     var event_ = new EventManager;
@@ -154,7 +163,7 @@
         },
         destoryed() {
         },
-        step(dt) {
+        update(dt) {
         },
         paint(ctx) {
         },
@@ -198,15 +207,18 @@
             render_.start();
             'function' === typeof startup && startup();
         },
-        Entity: function(id, proto, opts) {
+        Entity: function(type, proto, opts) {
+            if (!type) return;
             opts = opts || {};
             Object.setPrototypeOf(proto, entityProto);
             var layer = opts.layer;
-            this.Entity[id] = function(props) {
+            this.Entity[type] = function(props) {
                 Object.setPrototypeOf(this, proto);
-                this.super = entityProto;
+                Object.defineProperty(this, 'type', readonly(type.toLocaleLowerCase()));
+                Object.defineProperty(this, 'super', readonly(entityProto));
+                Object.defineProperty(this, 'id', readonly(++lastId_));
+                Object.assign(this, props);
                 this.layer_ = isUndef(layer) ? render_.push(this) : render_.push(layer, this);
-                this.id_ = ++lastId_;
                 this.created(props);
             }
         },
