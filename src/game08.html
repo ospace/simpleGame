@@ -206,8 +206,10 @@
           level: 1,
           sellCost: 2,
           upgradeCost: 2,
-          fireRate: 2, // per sec
+          bulletSpeed: 2, // per sec
+          demage: 1,
         };
+        this.bullet = 0;
         UpgradeMixin.call(this); 
       },
       update: function (dt) {
@@ -215,7 +217,12 @@
         this.upgradeUpdate(dt);
         this.target = this.getTarget();
         if(this.target && this.range >= this.target.len) {
-          this.angle = GameUtils.angle(this.centerPt, this.target.obj.pt);
+          this.angle = GameUtils.angle(this.centerPt, this.target.obj.center());
+          this.bullet += this.props.bulletSpeed*dt;
+          if (1 < this.bullet) {
+            this.bullet -= 1;
+            this.target.obj.hit(this.props.demage);
+          }
           // hit rate 계산
           // hit target
         }
@@ -256,6 +263,7 @@
         return this.props.sellCost;
       },
     });
+
     GameWorld.Entity(
       "Enermy",
       {
@@ -269,11 +277,16 @@
           //this.grid = props.grid;
           //this.fromPt = this.grid.grid2realCenter(this.pt);
           this.toPt = null;
+          this.life = 5;
+          this.price = 1;
           this.updateRoute();
         },
         move: function (from, to, len) {
           let dl = to - from;
           return 1 > Math.abs(dl) ? to : 0 < dl ? from + len : from - len;
+        },
+        center: function() {
+          return { x: this.pt.x+this.width/2, y: this.pt.y+this.height/2 };
         },
         update: function (dt) {
           try {
@@ -325,7 +338,7 @@
           return false;
         },
         paint: function (ctx) {
-          GameUtils.diamond(ctx, {x:this.pt.x+this.width/2, y:this.pt.y+this.height/2}, this.width, this.height, {
+          GameUtils.diamond(ctx, this.center(), this.width, this.height, {
             fillStyle: "red",
           });
         },
@@ -335,6 +348,14 @@
             this.tick < Math.abs(pt.y - this.pt.y)
           );
         },
+        hit: function(demage) {
+          this.life -= demage;
+          console.log('> enermy:', this.life);
+          if(0 < this.life) return;
+          // 삭제되고 금액 추가
+          this.delete();
+          GameWorld.emit('enermyDestroyed', this);
+        }
       },
       { layer: 1 }
     );
@@ -418,8 +439,10 @@
         return this.props.sellCost;
       },
     }, { layer: 1 });
+
     GameWorld.Entity("Platform", {
       created: function (props) {
+        this.bar = 100;
         var self = this;
         var gold = 20;
         var life = 10;
@@ -471,6 +494,8 @@
         }
         this.enermies = [];
         GameWorld.on("enermyDeleted", this.onEnermyDeleted.bind(this));
+        GameWorld.on("enermyDestroyed", this.onEnermyDestroyed.bind(this));
+        
       },
       onClick: function (gridIdx) {
         if (this.selected) {
@@ -502,6 +527,12 @@
       onEnermyDeleted: function (obj) {
         var enermy = obj.detail;
         this.removeEnermy(enermy);
+      },
+      onEnermyDestroyed: function (obj) {
+        var enermy = obj.detail;
+        var price = enermy.price;
+        0 < price && this.status.deposit(price);
+        this.onEnermyDeleted(obj);
       },
       removeEnermy: function (obj) {
         if (!obj) return;
@@ -545,7 +576,6 @@
             len = l;
             ret = item;
           }
-          console.log('> len:', len, 'obj:', ret);
           return {len: Math.sqrt(len), obj: ret};
         };
       },
