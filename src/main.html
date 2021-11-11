@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>game08</title>
+  <style>
+    button.active {
+      background-color: #ccc;
+    }
+    canvas {
+      border: 1px solid black;
+    }
+    #canvas1 {
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+  <p>
+  <div>
+    <canvas id="canvas1" width="510" height="300"></canvas>
+  </div>
+  <div>
+    <button id="btnNextWave" onclick="onNextWave(event)">Next wave in <label id="timeNextWave">*</label> sec</button>
+    <button id="btnCanon" onclick="onCanon(event)">Canon(10)</button>
+    <button id="btnWall" onclick="onWall(event)">Wall(2)</button>
+    <button id="btnUpgrade" disabled="true" onclick="onUpgrade(event)">
+      Upgrade(<label id="upgradeCost">**</label>)
+    </button>
+    <button id="btnSell" disabled="true" onclick="onSell(event)">Sell(<label id="sellCost">**</label>)</button>
+  </div>
+  </p>
+  <script src="engine/engine.js"></script>
+  <script src="engine/util.js"></script>
+  <script src="upgrademixin.js"></script>
+  <script src="status.js"></script>
+  <script src="cannon.js"></script>
+  <script src="enermy.js"></script>
+  <script src="wall.js"></script>
+  <script src="grid.js"></script>
+  <script src="platform.js"></script>
+
+  <script language="JavaScript">
+    var g_platform;
+    var g_selectedEntity;
+    var g_currentItem = null;
+    function onNextWave(ev) {
+      if (!g_platform) return;
+      g_platform.nextWave();
+    }
+    function onCanon(ev) {
+      disableClass(btnWall.classList, 'active');
+      enableClass(btnCanon.classList, 'active');
+      g_currentItem = 'canon';
+    }
+    function onWall(ev) {
+      enableClass(btnWall.classList, 'active');
+      disableClass(btnCanon.classList, 'active');
+      g_currentItem = 'wall';
+    }
+    function onUpgrade(ev) {
+      g_platform.upgrade();
+    }
+    function onSell(ev) {
+      g_platform.sell();
+      btnUpgrade.disabled = true;
+      btnSell.disabled = true;
+      upgradeCost.innerText = "**";
+      sellCost.innerText = "**";
+    }
+    function enableClass(classList, className) {
+      !classList.contains(className) && classList.add(className);
+    }
+    function disableClass(classList, className) {
+      classList.contains(className) && classList.remove(className);
+    }
+    var tileSize = 30;
+    var tick = tileSize / 2;
+    var wallMeta = [
+      "88888888888888888",
+      "80000000000000008",
+      "80000000000000008",
+      "80000000000000008",
+      "20000000000000003",
+      "20000000000000003",
+      "80000000000000003",
+      "80000000000000008",
+      "80000000000000008",
+      "88888888888888888",
+    ];
+    function isWall(x, y, val) {
+      var col = wallMeta[y];
+      return val === col.charAt(x);
+    }
+    function findAll(compare) {
+      var ret = [];
+      for (var i = 0; i < wallMeta.length; ++i) {
+        var col = wallMeta[i];
+        for (var j = 0; j < col.length; ++j) {
+          compare(col.charAt(j)) && ret.push({ x: j, y: i });
+        }
+      }
+      return ret;
+    }
+    var exits = findAll(function (it) {
+      return it === "3";
+    });
+    var AreaWidth;
+    var AreaHeight;
+        
+    function startup() {
+      AreaWidth = Math.floor(GameWorld.width / tileSize);
+      AreaHeight = Math.floor(GameWorld.height / tileSize);
+      ptnWall = [
+        GameWorld.createPattern(5, 2, 4, "lightgray", "gray"), // wall(fixed)
+        GameWorld.createPattern(5, 2, 3, "lightgray", "gray"), // wall
+        GameWorld.createPattern(5, 3, 1, "lightgray", "gray"), // entry
+        GameWorld.createPattern(5, 3, 1, "lightgray", "gray"), // exit
+      ];
+      let base = new GameWorld.Entity.Base({
+        x: 0,
+        y: 0,
+        width: GameWorld.width, 
+        height: GameWorld.height,
+        size: tileSize / 2,
+      });
+      var status = new GameWorld.Entity.Status();
+      g_platform = new GameWorld.Entity.Platform({ grid: base, status: status });
+      GameWorld.on("walldown", function (ev) {
+        g_selectedEntity = ev.detail;
+        btnUpgrade.disabled = false;
+        btnSell.disabled = false;
+        upgradeCost.innerText = g_selectedEntity.props.upgradeCost;
+        sellCost.innerText = g_selectedEntity.props.sellCost;
+      });
+      GameWorld.on("wallup", function (ev) {
+        g_selectedEntity = null;
+        btnUpgrade.disabled = true;
+        btnSell.disabled = true;
+        upgradeCost.innerText = "**";
+        sellCost.innerText = "**";
+      });
+      GameWorld.on("upgradeEnd", function (ev) {
+        if (g_selectedEntity) {
+          upgradeCost.innerText = g_selectedEntity.props.upgradeCost;
+          sellCost.innerText = g_selectedEntity.props.sellCost;
+        }
+      });
+    }
+    window.addEventListener("load", function () {
+      GameWorld.initialize("canvas1", startup);
+    });
+  </script>
+</body>
+</html>

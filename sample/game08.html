@@ -20,7 +20,7 @@
     <canvas id="canvas1" width="510" height="300"></canvas>
   </div>
   <div>
-    <button id="btnNextWave" onclick="onNextWave(event)">Next wave</button>
+    <button id="btnNextWave" onclick="onNextWave(event)">Next wave in <label id="timeNextWave">*</label> sec</button>
     <button id="btnCanon" onclick="onCanon(event)">Canon(10)</button>
     <button id="btnWall" onclick="onWall(event)">Wall(2)</button>
     <button id="btnUpgrade" disabled="true" onclick="onUpgrade(event)">
@@ -29,8 +29,8 @@
     <button id="btnSell" disabled="true" onclick="onSell(event)">Sell(<label id="sellCost">**</label>)</button>
   </div>
   </p>
-  <script src="engine.js"></script>
-  <script src="util.js"></script>
+  <script src="../src/engine.js"></script>
+  <script src="../src/util.js"></script>
   <script language="JavaScript">
     // https://m.blog.naver.com/kiseop91/221855589754
     // https://blog.unity.com/kr/technology/on-dots-entity-component-system
@@ -350,7 +350,6 @@
         },
         hit: function(demage) {
           this.life -= demage;
-          console.log('> enermy:', this.life);
           if(0 < this.life) return;
           // 삭제되고 금액 추가
           this.delete();
