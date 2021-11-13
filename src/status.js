@@ -8,6 +8,9 @@ GameWorld.Entity(
         this.score = 0;
         this.life = 0;
       },
+      destoryed: function() {
+        console.log('> status destoryed');
+      },
       update: function (dt) {
         if (0 < this.messageTmeout) {
           this.messageTmeout -= dt;
@@ -34,7 +37,7 @@ GameWorld.Entity(
         GameUtils.text(
           ctx,
           {
-            x: (AreaWidth - 1) * tileSize,
+            x: this.width - 30,
             y: tick,
           },
           `Gold: ${this.gold} Life: ${10 > this.life ? '0' + this.life : this.life}`,
@@ -70,6 +73,9 @@ GameWorld.Entity(
       setScore: function (value) {
         this.scroe = value;
       },
+      addScore: function(value) {
+        this.score += value;
+      },
       setGold: function (value) {
         this.gold = value;
       },
@@ -84,6 +90,9 @@ GameWorld.Entity(
       },
       setLife: function (value) {
         this.life = value;
+      },
+      descreaseLife: function() {
+        return --this.life;
       },
     },
     { layer: 9 }

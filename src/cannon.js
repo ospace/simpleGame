@@ -18,6 +18,9 @@ GameWorld.Entity("Canon", {
       this.bullet = 0;
       UpgradeMixin.call(this); 
     },
+    destoryed: function() {
+      console.log('> cannon destoryed');
+    },
     update: function (dt) {
       //let q = GameUtils.angle(this.pt, pointer);
       this.upgradeUpdate(dt);

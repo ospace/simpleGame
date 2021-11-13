@@ -76,6 +76,7 @@
                 var idx = layer.indexOf(obj);
                 if (~idx) {
                     layer.splice(idx, 1);
+                    obj.destoryed();
                     break;
                 }
             }

@@ -27,6 +27,9 @@ GameWorld.Entity("Base", {
         { lineDash: [5, 5] }
       );
     },
+    length: function() {
+      return this.items.length;
+    },
     pushItem: function (gridIdx, item) {
       if (this.getItem(gridIdx)) return;
       this.setItemStatus(gridIdx, item);
@@ -39,6 +42,7 @@ GameWorld.Entity("Base", {
       let idx = this.items.indexOf(item);
       ~idx && this.items.splice(idx, 1);
       this.setItemStatus(item.idx, undefined);
+      return item;
     },
     getItem: function (idx) {
       return (

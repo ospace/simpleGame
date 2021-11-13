@@ -1,20 +1,22 @@
 GameWorld.Entity(
     "Enermy",
     {
-      speed: 50,
+      // speed: 50,
+      speed: 200,
       created: function (props) {
         this.pt = props.pt;
         this.width =  props.width;
         this.height = props.height;
         this.size = props.size;
         this.half = props.size / 2;
-        //this.grid = props.grid;
-        //this.fromPt = this.grid.grid2realCenter(this.pt);
         this.toPt = null;
         this.life = 5;
         this.price = 1;
         this.updateRoute();
       },
+      // destoryed: function() {
+      //   console.log('> enermy destoryed');
+      // },
       move: function (from, to, len) {
         let dl = to - from;
         return 1 > Math.abs(dl) ? to : 0 < dl ? from + len : from - len;
@@ -28,7 +30,12 @@ GameWorld.Entity(
             var len = this.speed * dt;
             this.pt.x = this.move(this.pt.x, this.toPt.x, len);
             this.pt.y = this.move(this.pt.y, this.toPt.y, len);
-            this.isArrived() && this.nextRoute();
+            if (this.isArrived()) {
+              this.toPt = this.route.next();
+            }
+          } else {
+            GameWorld.emit('enermyExit', this);
+            return this.delete();
           }
           if (
             0 > this.pt.x ||
@@ -48,21 +55,8 @@ GameWorld.Entity(
         }
       },
       updateRoute() {
-        var gridPt = this.grid.real2grid(this.pt);
-        this.route = this.grid.search(gridPt);
-        this.routeIdx = 0;
-        this.nextRoute();
-      },
-      nextRoute() {
-        ++this.routeIdx;
-        if (this.routeIdx < this.route.length) {
-          let gridPt = this.route[this.routeIdx];
-          this.toPt = this.grid.grid2real(gridPt);
-        } else {
-          // exit
-          this.toPt = null;
-          this.isFin = true;
-        }
+        this.route = this.searchRoute(this.pt);
+        this.toPt = this.route.next();
       },
       isArrived() {
         if (!this.toPt) return false;

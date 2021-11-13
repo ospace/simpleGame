@@ -38,14 +38,26 @@
   <script src="wall.js"></script>
   <script src="grid.js"></script>
   <script src="platform.js"></script>
+  <script src="gameover.js"></script>
 
   <script language="JavaScript">
     var g_platform;
     var g_selectedEntity;
     var g_currentItem = null;
+    var g_nextTimeout = 20;
+    setInterval(function() {
+      if (0 >= --g_nextTimeout) {
+        onNextWave();
+        g_nextTimeout = 20;
+      }
+      timeNextWave.innerText = g_nextTimeout;
+    }, 1000);
+    
+
     function onNextWave(ev) {
       if (!g_platform) return;
       g_platform.nextWave();
+      g_nextTimeout = 10;
     }
     function onCanon(ev) {
       disableClass(btnWall.classList, 'active');
@@ -87,10 +99,7 @@
       "80000000000000008",
       "88888888888888888",
     ];
-    function isWall(x, y, val) {
-      var col = wallMeta[y];
-      return val === col.charAt(x);
-    }
+
     function findAll(compare) {
       var ret = [];
       for (var i = 0; i < wallMeta.length; ++i) {
@@ -101,30 +110,9 @@
       }
       return ret;
     }
-    var exits = findAll(function (it) {
-      return it === "3";
-    });
-    var AreaWidth;
-    var AreaHeight;
         
     function startup() {
-      AreaWidth = Math.floor(GameWorld.width / tileSize);
-      AreaHeight = Math.floor(GameWorld.height / tileSize);
-      ptnWall = [
-        GameWorld.createPattern(5, 2, 4, "lightgray", "gray"), // wall(fixed)
-        GameWorld.createPattern(5, 2, 3, "lightgray", "gray"), // wall
-        GameWorld.createPattern(5, 3, 1, "lightgray", "gray"), // entry
-        GameWorld.createPattern(5, 3, 1, "lightgray", "gray"), // exit
-      ];
-      let base = new GameWorld.Entity.Base({
-        x: 0,
-        y: 0,
-        width: GameWorld.width, 
-        height: GameWorld.height,
-        size: tileSize / 2,
-      });
-      var status = new GameWorld.Entity.Status();
-      g_platform = new GameWorld.Entity.Platform({ grid: base, status: status });
+      g_platform = new GameWorld.Entity.Platform({ width: GameWorld.width, height: GameWorld.height, tileSize: tileSize });
       GameWorld.on("walldown", function (ev) {
         g_selectedEntity = ev.detail;
         btnUpgrade.disabled = false;
