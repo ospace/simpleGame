@@ -204,101 +204,227 @@
       return ret;
     }
 
+    function SpriteMixin() {
+      this.draw = function(ctx, id, x, y) {
+        if (!this.image) return;
+        var map = this.map[id];
+        if (!map) return;
+        frame = frame || 0;
+        ctx.drawImage(this.image, map.x + frame * map.width, map.y, map.width, map.height, Math.floor(x), Math.floor(y), map.width, map.height);
+      }
+    }
+
+    function AtlasMixin() {
+      this.draw = function(ctx, id, x, y, frame) {
+        var map = this.atlas.regions[id][0];
+        if (!map || !this.image) return;
+
+        var size = map.size;
+        var angle = 0;
+        if (map.rotate) {
+          size = [map.size[1], map.size[0]];
+          angle = 90;
+          var diff = (size[0] - size[1]) >> 1;
+          x -= diff;
+          y -= diff;
+        }
+
+        ctx.save();
+        
+        ctx.setTransform(1, 0, 0, 1, map.offset[0], map.offset[1]);
+        angle && rotate(ctx, { x: x + (map.size[0] >> 1), y: y + (map.size[1] >> 1) }, GameUtils.degree2radian(angle));
+        ctx.drawImage(
+          this.image,
+          map.xy[0],
+          map.xy[1],
+          size[0],
+          size[1],
+          Math.floor(x),
+          Math.floor(y),
+          size[0],
+          size[1]);
+        //rect(ctx, {x:x, y:y}, size[0], size[1]);
+        
+        ctx.restore();
+      }
+    }
+
+    function cirlce(ctx, pt, radius, opt) {
+      opt = Object.assign({ begin: 0, end: 2, radius: radius || 20, width: 1, lineDash: [], strokeStyle: "#999"}, opt);
+      rollback(ctx, function() {
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, opt.radius, Math.PI * opt.begin, Math.PI * opt.end)
+          applyDefaultStyle(ctx, opt);
+          opt.fillStyle ? ctx.fill() : ctx.stroke();
+      });
+    }
+
+    function line (ctx, p0, p1, opt) {
+      opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
+      rollback(ctx, function() {
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          applyDefaultStyle(ctx, opt);
+          ctx.stroke();
+      });
+    }
+
+    function rect (ctx, pt, w, h, opt) {
+      opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
+      rollback(ctx, function() {
+          ctx.beginPath();
+          applyDefaultStyle(ctx, opt);
+          ctx.rect(pt.x, pt.y, w, h);
+          opt.fillStyle ? ctx.fill() : ctx.stroke();
+      });
+    }
+
+    function fillRect(ctx, pt, w, h, opt) {
+      opt = Object.assign({ width: 1, lineDash: [], fillStyle: "#999" }, opt);
+      rollback(ctx, function() {
+          ctx.beginPath();
+          applyDefaultStyle(ctx, opt);
+          ctx.fillRect(pt.x, pt.y, w, h);
+      });
+    }
+
+    function diamond(ctx, pt, w, h,opt) {
+      rollback(ctx, function() {
+          ctx.beginPath();
+          applyDefaultStyle(ctx, opt);
+          ctx.moveTo(pt.x, pt.y - h/2);
+          ctx.lineTo(pt.x - w/2, pt.y);
+          ctx.lineTo(pt.x, pt.y + h/2);
+          ctx.lineTo(pt.x + w/2, pt.y);
+          ctx.closePath();
+          opt.fillStyle && ctx.fill();
+      });
+    }
+
+    function text(ctx, pt, str, opt) {
+      // font: 12px serif, 10px sans-serif
+      // textBaseline: top, hanging, middle, alphabetic(default), ideographic, bottom
+      opt = Object.assign({ font: '11px sans-serif', textAlign: 'left', fillStyle: "#ccc" }, opt);
+      rollback(ctx, function() {
+          applyDefaultStyle(ctx, opt);
+          ctx.fillText(str, pt.x, pt.y);
+      });
+    }
+
+    function rotate(ctx, center, radian) {
+      ctx.translate(center.x, center.y);
+      ctx.rotate(radian);
+      ctx.translate(-center.x, -center.y);
+    }
+
+    function angle(pt0, pt1) {
+      return Math.atan2(pt1.y - pt0.y, pt1.x - pt0.x);
+    }
+
+    function fract(val) {
+      // var ret = val - Math.floor(val);
+      var ret = val % 1; // 조금 더 빠름
+      return 0 > ret ? 1 + ret : ret;
+    }
+
+    function dot(x0, y0, x1, y1) {
+      return x0 * x1 + y0 * y1;
+    }
+
+    function mix(l, r, f) {
+      return l * (1 - f) + r * f;
+    }
+
+    function clamp(val, minVal, maxVal) {
+      if (val > maxVal) return maxVal;
+      if (val < minVal) return minVal;
+      return val;
+      //return Math.min(Math.max(val, minVal), maxVal);
+    }
+
+    function smoothstep(l, r, f) {
+      var t = this.clamp((f-l)/(r-l), 0.0, 1.0);
+      return t * t * (3.0 - 2.0 * t);
+    }
+
+    function loadImage(src, next) {
+      console.log('> loadImage - src:', src)
+      var image = new Image();
+      image.onload = function() {
+        next && next(image);
+      };
+      image.src = src;
+
+      return image;
+    }
+
+    function loadSprite(src, mapData, next) {
+      var ret = { map: mapData || {} };
+      this.loadImage(src, function(img) {
+        ret.image = img;
+        next && next(ret);
+      });
+      SpriteMixin.call(ret);
+
+      return ret;
+    }
+
+    function loadAtlas(atlasData, next) {
+      var ret = { atlas: atlasData || {} };
+      this.loadImage(ret.atlas.name, function(img) {
+        ret.image = img;
+        next && next(ret);
+      });
+      AtlasMixin.call(ret);
+
+      return ret;
+    }
+
+    function readTextUrl(src, next) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', src);
+      xhr.onreadystatechange = function() {
+        if ( 4 !== xhr.readyState ) return;
+        if ( 200 <= xhr.status && xhr.status < 300) {
+          next && next(xhr.responseText);
+        } else {
+          throw new Error({ status:xhr.status, message: xhr.message });
+        }
+      };
+      xhr.send(null);
+    }
+
+    function degree2radian(degree) {
+      return degree * Math.PI / 180;
+    }
+
+    function clearRect(ctx, pt, w, h) {
+      ctx.clearRect(pt.x-1, pt.y-1, w+2, h+2);
+    }
+
     return {
         Heap: Heap,
-        circle: function(ctx, pt, radius, opt) {
-            opt = Object.assign({ begin: 0, end: 2, radius: radius || 20, width: 1, lineDash: [], strokeStyle: "#999"}, opt);
-            rollback(ctx, function() {
-                ctx.beginPath();
-                ctx.arc(pt.x, pt.y, opt.radius, Math.PI * opt.begin, Math.PI * opt.end)
-                applyDefaultStyle(ctx, opt);
-                opt.fillStyle ? ctx.fill() : ctx.stroke();
-            });
-        },
-        line: function(ctx, p0, p1, opt) {
-            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
-            rollback(ctx, function() {
-                ctx.beginPath();
-                ctx.moveTo(p0.x, p0.y);
-                ctx.lineTo(p1.x, p1.y);
-                applyDefaultStyle(ctx, opt);
-                ctx.stroke();
-            });
-        },
-        rect: function(ctx, pt, w, h, opt) {
-            opt = Object.assign({ width: 1, lineDash: [], strokeStyle: "#999" }, opt);
-            rollback(ctx, function() {
-                ctx.beginPath();
-                applyDefaultStyle(ctx, opt);
-                ctx.rect(pt.x, pt.y, w, h);
-                opt.fillStyle ? ctx.fill() : ctx.stroke();
-            });
-        },
-        fillRect: function(ctx, pt, w, h, opt) {
-            opt = Object.assign({ width: 1, lineDash: [], fillStyle: "#999" }, opt);
-            rollback(ctx, function() {
-                ctx.beginPath();
-                applyDefaultStyle(ctx, opt);
-                ctx.fillRect(pt.x, pt.y, w, h);
-            });
-        },
-        diamond: function(ctx, pt, w, h,opt) {
-            rollback(ctx, function() {
-                ctx.beginPath();
-                applyDefaultStyle(ctx, opt);
-                ctx.moveTo(pt.x, pt.y - h/2);
-                ctx.lineTo(pt.x - w/2, pt.y);
-                ctx.lineTo(pt.x, pt.y + h/2);
-                ctx.lineTo(pt.x + w/2, pt.y);
-                ctx.closePath();
-                opt.fillStyle && ctx.fill();
-            });
-        },
-        text: function(ctx, pt, str, opt) {
-            // font: 12px serif, 10px sans-serif
-            // textBaseline: top, hanging, middle, alphabetic(default), ideographic, bottom
-            opt = Object.assign({ font: '11px sans-serif', textAlign: 'left', fillStyle: "#ccc" }, opt);
-            rollback(ctx, function() {
-                applyDefaultStyle(ctx, opt);
-                ctx.fillText(str, pt.x, pt.y);
-            });
-        },
-        measureText(str) {
-            return ctx.measureText(str);
-        },
-        clearRect: function(ctx, pt, w, h) {
-            ctx.clearRect(pt.x-1, pt.y-1, w+2, h+2);
-        },
-        rotate: function(ctx, center, radian) {
-            ctx.translate(center.x, center.y);
-            ctx.rotate(radian);
-            ctx.translate(-center.x, -center.y);
-        },
-        angle: function(pt0, pt1) {
-            return Math.atan2(pt1.y - pt0.y, pt1.x - pt0.x);
-        },
-        fract: function(val) {
-            // var ret = val - Math.floor(val);
-            var ret = val % 1; // 조금 더 빠름
-            return 0 > ret ? 1 + ret : ret;
-        },
-        dot: function(x0, y0, x1, y1) {
-            return x0 * x1 + y0 * y1;
-        },
-        mix: function(l, r, f) {
-            return l * (1 - f) + r * f;
-        },
-        clamp: function(val, minVal, maxVal) {
-            if (val > maxVal) return maxVal;
-            if (val < minVal) return minVal;
-            return val;
-            //return Math.min(Math.max(val, minVal), maxVal);
-        },
-        smoothstep: function(l, r, f) {
-            var t = this.clamp((f-l)/(r-l), 0.0, 1.0);
-            return t * t * (3.0 - 2.0 * t);
-        },
+        circle: cirlce,
+        line: line,
+        rect: rect,
+        fillRect: fillRect,
+        diamond: diamond,
+        text: text,
+        clearRect: clearRect,
+        rotate: rotate,
+        angle: angle,
+        fract: fract,
+        dot: dot,
+        mix: mix,
+        clamp: clamp,
+        smoothstep: smoothstep,
         searchAStar: searchAStar,
         searchSimple: searchSimple,
+        loadImage: loadImage,
+        loadSprite: loadSprite,
+        loadAtlas: loadAtlas,
+        readTextUrl: readTextUrl,
+        degree2radian: degree2radian,
     };
 }));
