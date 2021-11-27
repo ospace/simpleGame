@@ -207,24 +207,29 @@
     function SpriteMixin() {
       this.draw = function(ctx, id, x, y) {
         if (!this.image) return;
-        var map = this.map[id];
+        let map = this.map[id];
         if (!map) return;
         frame = frame || 0;
         ctx.drawImage(this.image, map.x + frame * map.width, map.y, map.width, map.height, Math.floor(x), Math.floor(y), map.width, map.height);
       }
     }
 
-    function AtlasMixin() {
-      this.draw = function(ctx, id, x, y, frame) {
-        var map = this.atlas.regions[id][0];
+    class Atlas {
+      constructor(atlas, image) {
+        this.atlas = atlas;
+        this.image = image; 
+      }
+
+      draw (ctx, id, x, y, frame) {
+        let map = this.atlas.region[id][0];
         if (!map || !this.image) return;
 
-        var size = map.size;
-        var angle = 0;
+        let size = map.size;
+        let angle = 0;
         if (map.rotate) {
           size = [map.size[1], map.size[0]];
           angle = 90;
-          var diff = (size[0] - size[1]) >> 1;
+          let diff = (size[0] - size[1]) >> 1;
           x -= diff;
           y -= diff;
         }
@@ -246,6 +251,11 @@
         //rect(ctx, {x:x, y:y}, size[0], size[1]);
         
         ctx.restore();
+      }
+
+      regionOf(id) {
+        let ret = this.atlas.region[id];
+        return 1 === ret.length ? ret[0] : ret;
       }
     }
 
@@ -349,7 +359,6 @@
     }
 
     function loadImage(src, next) {
-      console.log('> loadImage - src:', src)
       var image = new Image();
       image.onload = function() {
         next && next(image);
@@ -361,7 +370,7 @@
 
     function loadSprite(src, mapData, next) {
       var ret = { map: mapData || {} };
-      this.loadImage(src, function(img) {
+      loadImage(src, function(img) {
         ret.image = img;
         next && next(ret);
       });
@@ -370,29 +379,117 @@
       return ret;
     }
 
-    function loadAtlas(atlasData, next) {
-      var ret = { atlas: atlasData || {} };
-      this.loadImage(ret.atlas.name, function(img) {
-        ret.image = img;
-        next && next(ret);
+    function loadAtlas(atlasData) {
+      return new Promise((resolve) => {
+        loadImage(atlasData.name, function(img) {
+          resolve(new Atlas(atlasData, img));
+        });
       });
-      AtlasMixin.call(ret);
+    }
+
+    function loadAtlasByUrl(strUrl, next) {
+      return readTextByUrl(strUrl)
+      .then((res) => {
+        let rawAtlas = parseAtlas(res);
+        console.log('> rawAtlas:', rawAtlas);
+        return loadAtlas(rawAtlas);
+      });
+    }
+
+    function parseAtlas(str) {
+      let ret = {region: {}};
+        
+      let lines = str.split('\n');
+      let i = 0;
+      let n = lines.length;
+      if (!lines[i].trim()) ++i;
+
+      ret.name = lines[i++].trim();
+      for (;i<n; ++i) {
+        if (!parseAtlasKeyValue(ret, lines[i])) break;
+      }
+
+      let region = null;
+      for(;i<n; ++i) {
+        let line = lines[i];
+        if (' ' === line.charAt(0)) {
+          parseAtlasKeyValue(region, line);
+        } else {
+          var name = line.trim();
+          if (name) {
+            if (!ret.region[name]) {
+              ret.region[name] = [];
+            }
+            ret.region[name].push(region = {});
+          }
+        }
+      }
+      Object.values(ret.region).forEach((it)=>{
+        it.sort((l,r)=>(l.index - r.index))
+      });
 
       return ret;
     }
 
-    function readTextUrl(src, next) {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', src);
-      xhr.onreadystatechange = function() {
-        if ( 4 !== xhr.readyState ) return;
-        if ( 200 <= xhr.status && xhr.status < 300) {
-          next && next(xhr.responseText);
-        } else {
-          throw new Error({ status:xhr.status, message: xhr.message });
+    function parseAtlasKeyValue(obj, line) {
+      let ret = line.split(':');
+      if (!ret || 2 > ret.length) return false;
+      let key = ret[0].trim();
+      let value;
+      if ('index' === key) {
+        value = Number(ret[1]);
+      } else {
+        let values = ret[1].split(',');
+        for (let i=0; i< values.length; ++i) {
+          let val = Number(values[i]);
+          if (isNaN(val)) {
+            val = values[i].trim();
+            switch(val) {
+              case 'true': val = true; break;
+              case 'none':
+              case 'false': val = false; break;
+              default: break;
+            }
+          }
+          values[i] = val;
         }
-      };
-      xhr.send(null);
+        value = 1 === values.length ? values[0] : values;
+      }
+      obj[key] = value;
+      return true;
+    }
+
+    function forEach(array, iterate) {
+      if (!array) return;
+      if (Array.isArray(array)) {
+        return array.forEach(iterate);
+      }
+      if (array.hasOwnProperty(Symbol.iterator)) {
+        let it = array[Symbol.iterator];
+        for (let val; val; val = it.next()) {
+          iterator(val);
+        }
+      }
+
+      for (let k in array) {
+        iterator(k);
+      }
+    }
+
+    function readTextByUrl(src) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', src);
+        xhr.onreadystatechange = function() {
+          if ( 4 !== xhr.readyState ) return;
+          if ( 200 <= xhr.status && xhr.status < 300) {
+            resolve(xhr.responseText);
+          } else {
+            reject(new Error({ status:xhr.status, message: xhr.message }));
+          }
+        };
+        xhr.send(null);
+      });
     }
 
     function degree2radian(degree) {
@@ -404,27 +501,28 @@
     }
 
     return {
-        Heap: Heap,
-        circle: cirlce,
-        line: line,
-        rect: rect,
-        fillRect: fillRect,
-        diamond: diamond,
-        text: text,
-        clearRect: clearRect,
-        rotate: rotate,
-        angle: angle,
-        fract: fract,
-        dot: dot,
-        mix: mix,
-        clamp: clamp,
-        smoothstep: smoothstep,
-        searchAStar: searchAStar,
-        searchSimple: searchSimple,
-        loadImage: loadImage,
-        loadSprite: loadSprite,
-        loadAtlas: loadAtlas,
-        readTextUrl: readTextUrl,
-        degree2radian: degree2radian,
+        Heap,
+        line,
+        rect,
+        fillRect,
+        diamond,
+        text,
+        clearRect,
+        rotate,
+        angle,
+        fract,
+        dot,
+        mix,
+        clamp,
+        smoothstep,
+        searchAStar,
+        searchSimple,
+        loadImage,
+        loadSprite,
+        loadAtlas,
+        loadAtlasByUrl,
+        readTextByUrl,
+        degree2radian,
+        forEach,
     };
 }));
