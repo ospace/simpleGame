@@ -388,11 +388,9 @@
     }
 
     function loadAtlasByUrl(strUrl, next) {
-      return readTextByUrl(strUrl)
+      return getText(strUrl)
       .then((res) => {
-        let rawAtlas = parseAtlas(res);
-        console.log('> rawAtlas:', rawAtlas);
-        return loadAtlas(rawAtlas);
+        return loadAtlas(parseAtlas(res));
       });
     }
 
@@ -461,9 +459,11 @@
 
     function forEach(array, iterate) {
       if (!array) return;
+
       if (Array.isArray(array)) {
         return array.forEach(iterate);
       }
+
       if (array.hasOwnProperty(Symbol.iterator)) {
         let it = array[Symbol.iterator];
         for (let val; val; val = it.next()) {
@@ -476,14 +476,31 @@
       }
     }
 
-    function readTextByUrl(src) {
+    function getText(src) {
+      return ajax(src)
+        .then(function(xhr) {
+          return xhr.responseText;
+        });
+    }
+
+    function getJson(src) {
+      return ajax(src, 'json')
+      .then(function(xhr) {
+        return xhr.response;
+      });
+    }
+
+    function ajax(strUrl, responseType) {
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('GET', src);
+        xhr.open('GET', strUrl);
+        if (responseType) {
+          xhr.responseType = responseType;
+        }
         xhr.onreadystatechange = function() {
           if ( 4 !== xhr.readyState ) return;
           if ( 200 <= xhr.status && xhr.status < 300) {
-            resolve(xhr.responseText);
+            resolve(xhr);
           } else {
             reject(new Error({ status:xhr.status, message: xhr.message }));
           }
@@ -521,7 +538,8 @@
         loadSprite,
         loadAtlas,
         loadAtlasByUrl,
-        readTextByUrl,
+        getText,
+        getJson,
         degree2radian,
         forEach,
     };

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>test02</title>
+  <style>
+    canvas {
+      border: 1px solid black;
+    }
+  </style>
+</head>
+<body>
+  <p>
+  <div>
+    <canvas id="canvas1" width="510" height="300"></canvas>
+  </div>
+  <div>
+  <script src="../src/engine/engine.js"></script>
+  <script src="../src/engine/util.js"></script>
+  <script language="JavaScript">
+    window.addEventListener("load", function () {
+      GameWorld.initialize("canvas1", startup);
+    });
+
+    function onWindowResize() {
+      // let body = document.getElementsByTagName('body')[0];
+      // canvas1.width = body.offsetWidth;
+      // canvas1.height = body.offsetHeight;
+      canvas1.width = window.innerWidth - 30;
+      canvas1.height = window.innerHeight - 30;
+    }
+    window.addEventListener('resize', onWindowResize, true);
+    onWindowResize();
+
+    GameWorld.Entity('L_eye', {
+      created(props) {
+        this.atlas = props.atlas;
+        // console.log('> test01 - x:', this.x, 'y:', this.y);
+      },
+      paint(ctx) {
+        try {
+          this.atlas.draw(ctx, 'L_eye-closed', 0, 0);
+          this.atlas.draw(ctx, 'L_eye-iris', 179, 0);
+          this.atlas.draw(ctx, 'L_foot', 0, 171);
+        } catch(ex) {
+          console.error(ex);
+          this.delete();
+        }
+      }
+    });
+
+    GameWorld.Entity('Pointer', {
+      created(props) {
+        this.pointer = GameWorld.Pointer;
+        this.pos = '';
+      },
+      update(dt) {
+        let pos = screenToWorld(this.pointer.pos);
+        this.pos = pos ? `[${pos.x}, ${pos.y}]` : '';
+      },
+      paint(ctx) {
+        GameUtils.text(
+          ctx,
+          {
+            x: GameWorld.width,
+            y: GameWorld.height - 8,
+          },
+          this.pos,
+          {
+            font: "bold 12px sans-serif",
+            textAlign: "right",
+            textBaseline: "middle",
+            fillStyle: "black",
+          }
+        );
+      }
+    });
+
+    /*
+    skeleton(instance data)
+    * bone data
+    * slot data
+    skeleton 기본(setup pose)
+    * bone 데이터
+    * skin 데이터
+    * event 데이터
+    * slot 데이터
+    * animation 데이터
+      * 효과 종류
+      * 타임라인
+    
+    좌표변환
+    World->Screen
+    World->View
+
+
+    */
+
+    function screenToWorld(pt) {
+      if (!pt) return pt;
+      return { x: pt.x - (GameWorld.width >> 1), y: pt.y - (GameWorld.height >> 1) };
+    }
+
+    function startup() {
+      GameUtils.loadAtlasByUrl('owl-pro.atlas')
+      .then((atlas)=>{
+        console.log('> res:', atlas);
+        new GameWorld.Entity['L_eye']({atlas});
+        new GameWorld.Entity.Pointer;
+
+        GameUtils.getJson('owl-pro.json')
+        .then((skel)=>{
+          console.log('> skel:', skel);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

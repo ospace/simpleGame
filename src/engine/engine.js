@@ -142,12 +142,14 @@
     }
 
     function readonly(value) {
-        return {
-            enumerable: false,
-            configurable: false,
-            writable: false,
-            value: value,
+        let ret = { enumerable: true, configurable: false };
+        if ('function' === typeof value) {
+            ret.get = value;
+        } else {
+            ret.writable = false;
+            ret.value = value;
         }
+        return ret;
     }
 
     var render_ = new RenderManager;
@@ -192,7 +194,6 @@
 
     function isUndef(obj) { return undefined === obj || null == obj; }
 
-
     return {
         initialize: function(canvasId, startup) {
             if (canvas_) return;
@@ -201,8 +202,8 @@
 
             input_.bind(canvas_);
             event_.bind(canvas_);
-            this.width = canvas_.width;
-            this.height= canvas_.height;
+            Object.defineProperty(this, 'width', readonly(()=>(canvas_.width)));
+            Object.defineProperty(this, 'height', readonly(()=>(canvas_.height)));
             ctx_ = canvas_.getContext && canvas_.getContext('2d');
             render_.action('setup');
             render_.start();
