@@ -1,124 +1,129 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <title>rand04</title>
+    <style></style>
+  </head>
 
-<head>
-  <title>rand04</title>
-  <style></style>
-</head>
-
-<body>
-  <p><canvas id="canvas1" width="400" height="100"></canvas></p>
-  <p><canvas id="canvas2" width="400" height="100"></canvas></p>
-  <p><canvas id="canvas3" width="400" height="100"></canvas></p>
-  <p><canvas id="canvas4" width="400" height="100"></canvas></p>
-  <p><canvas id="canvas5" width="400" height="100"></canvas></p>
-  <p><canvas id="canvas6" width="400" height="100"></canvas></p>
-  <script src="util.js"></script>
-  <script language="JavaScript">
-    for (var i = 0.0; i <= 0.3; i += 0.01) {
-      console.log(i.toFixed(1), ':', GameUtils.smoothstep(0.02, 0.0, i).toFixed(2), ',', GameUtils.smoothstep(0.0, 0.02, i).toFixed(2));
-    }
-    var ctx = canvas1.getContext("2d");
-    // gl.viewport(0, 0, canvas1.width, canvas1.height);
-    //https://codepen.io/ImagineProgramming/pen/LpOJzM?editors=0010
-    //https://thebookofshaders.com/edit.php#10/ikeda-00.frag
-    //https://thebookofshaders.com/edit.php#10/ikeda-03.frag
-    //https://thebookofshaders.com/edit.php#10/ikeda-04.frag
-    (function ex01(canvas) {
-      var ctx = canvas.getContext("2d");
-      var W = canvas.width;
-      var H = canvas.height;
-      var H2 = H / 2;
-
-      for (var i = 0.0; i < 4; i += 0.001) {
-        let val = GameUtils.fract(Math.sin(Math.PI * i) * 1.0);
-        //let val = Math.random();
-        dot(ctx, (i * W) >> 2, H - H * val);
+  <body>
+    <p><canvas id="canvas1" width="400" height="100"></canvas></p>
+    <p><canvas id="canvas2" width="400" height="100"></canvas></p>
+    <p><canvas id="canvas3" width="400" height="100"></canvas></p>
+    <p><canvas id="canvas4" width="400" height="100"></canvas></p>
+    <p><canvas id="canvas5" width="400" height="100"></canvas></p>
+    <p><canvas id="canvas6" width="400" height="100"></canvas></p>
+    <script src="../src/engine/util.js"></script>
+    <script language="JavaScript">
+      for (var i = 0.0; i <= 0.3; i += 0.01) {
+        console.log(
+          i.toFixed(1),
+          ":",
+          GameUtils.smoothstep(0.02, 0.0, i).toFixed(2),
+          ",",
+          GameUtils.smoothstep(0.0, 0.02, i).toFixed(2)
+        );
       }
-    })(canvas1);
+      var ctx = canvas1.getContext("2d");
+      // gl.viewport(0, 0, canvas1.width, canvas1.height);
+      //https://codepen.io/ImagineProgramming/pen/LpOJzM?editors=0010
+      //https://thebookofshaders.com/edit.php#10/ikeda-00.frag
+      //https://thebookofshaders.com/edit.php#10/ikeda-03.frag
+      //https://thebookofshaders.com/edit.php#10/ikeda-04.frag
+      (function ex01(canvas) {
+        var ctx = canvas.getContext("2d");
+        var W = canvas.width;
+        var H = canvas.height;
+        var H2 = H / 2;
 
-    (function ex02(canvas) {
-      var ctx = canvas.getContext("2d");
-      var W = canvas.width;
-      var H = canvas.height;
-      var H2 = H / 2;
-
-      for (var i = 0.0; i < 4; i += 0.001) {
-        let val = GameUtils.fract(Math.sin(Math.PI * i) * 10.0);
-        dot(ctx, (i * W) >> 2, H - H * val);
-      }
-    })(canvas2);
-
-    (function ex03(canvas) {
-      var ctx = canvas.getContext("2d");
-      var W = canvas.width;
-      var H = canvas.height;
-      var H2 = H / 2;
-
-      for (var i = 0.0; i < 4; i += 0.001) {
-        let val = GameUtils.fract(Math.sin(Math.PI * i) * 1000.0);
-        dot(ctx, (i * W) >> 2, H - H * val);
-      }
-    })(canvas3);
-
-    (function ex04(canvas) {
-      var ctx = canvas.getContext("2d");
-      var W = canvas.width;
-      var H = canvas.height;
-      var H2 = H / 2;
-
-      for (var i = 0.0; i < 4; i += 0.001) {
-        let val = Math.random();
-        dot(ctx, (i * W) >> 2, H - H * val);
-      }
-    })(canvas4);
-
-    (function ex05(canvas) {
-      var ctx = canvas.getContext("2d");
-      var W = canvas.width;
-      var H = canvas.height;
-      var H2 = H / 2;
-
-      for (var i = 0.0; i <= 1; i += 0.008) {
-        for (var j = 0.0; j <= 1; j += 0.03) {
-          let val = GameUtils.fract(
-            Math.sin(GameUtils.dot(i, j, 12.9898, 78.233)) * 43758.5454123
-          );
-          ctx.fillStyle = `rgba(${val * 256},${val * 256},${val * 256},1.0)`;
-          dot(ctx, i * W, H - j * H, 1);
+        for (var i = 0.0; i < 4; i += 0.001) {
+          let val = GameUtils.fract(Math.sin(Math.PI * i) * 1.0);
+          //let val = Math.random();
+          dot(ctx, (i * W) >> 2, H - H * val);
         }
-      }
-    })(canvas5);
+      })(canvas1);
 
-    (function ex06(canvas) {
-      var ctx = canvas.getContext("2d");
-      var W = canvas.width;
-      var H = canvas.height;
-      var H2 = H / 2;
+      (function ex02(canvas) {
+        var ctx = canvas.getContext("2d");
+        var W = canvas.width;
+        var H = canvas.height;
+        var H2 = H / 2;
 
-      setInterval(function () {
-        ctx.clearRect(0, 0, W, H);
-        var t = new Date().getTime() * 1.01;
+        for (var i = 0.0; i < 4; i += 0.001) {
+          let val = GameUtils.fract(Math.sin(Math.PI * i) * 10.0);
+          dot(ctx, (i * W) >> 2, H - H * val);
+        }
+      })(canvas2);
+
+      (function ex03(canvas) {
+        var ctx = canvas.getContext("2d");
+        var W = canvas.width;
+        var H = canvas.height;
+        var H2 = H / 2;
+
+        for (var i = 0.0; i < 4; i += 0.001) {
+          let val = GameUtils.fract(Math.sin(Math.PI * i) * 1000.0);
+          dot(ctx, (i * W) >> 2, H - H * val);
+        }
+      })(canvas3);
+
+      (function ex04(canvas) {
+        var ctx = canvas.getContext("2d");
+        var W = canvas.width;
+        var H = canvas.height;
+        var H2 = H / 2;
+
+        for (var i = 0.0; i < 4; i += 0.001) {
+          let val = Math.random();
+          dot(ctx, (i * W) >> 2, H - H * val);
+        }
+      })(canvas4);
+
+      (function ex05(canvas) {
+        var ctx = canvas.getContext("2d");
+        var W = canvas.width;
+        var H = canvas.height;
+        var H2 = H / 2;
+
         for (var i = 0.0; i <= 1; i += 0.008) {
           for (var j = 0.0; j <= 1; j += 0.03) {
             let val = GameUtils.fract(
-              // Math.sin(dotProduct(i, j, 12.9898, 78.233)) * 43758.5454123
-              Math.sin(GameUtils.dot(i, j, 12.9898, 78.233)) * t
+              Math.sin(GameUtils.dot(i, j, 12.9898, 78.233)) * 43758.5454123
             );
-            ctx.fillStyle = `rgba(${val * 256},${val * 256},${val * 256
-              },1.0)`;
+            ctx.fillStyle = `rgba(${val * 256},${val * 256},${val * 256},1.0)`;
             dot(ctx, i * W, H - j * H, 1);
           }
         }
-      }, 500);
-    })(canvas6);
+      })(canvas5);
 
-    function dot(ctx, x, y, r, c) {
-      ctx.beginPath();
-      ctx.arc(x, y, r || 0.4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  </script>
-</body>
+      (function ex06(canvas) {
+        var ctx = canvas.getContext("2d");
+        var W = canvas.width;
+        var H = canvas.height;
+        var H2 = H / 2;
 
+        setInterval(function () {
+          ctx.clearRect(0, 0, W, H);
+          var t = new Date().getTime() * 1.01;
+          for (var i = 0.0; i <= 1; i += 0.008) {
+            for (var j = 0.0; j <= 1; j += 0.03) {
+              let val = GameUtils.fract(
+                // Math.sin(dotProduct(i, j, 12.9898, 78.233)) * 43758.5454123
+                Math.sin(GameUtils.dot(i, j, 12.9898, 78.233)) * t
+              );
+              ctx.fillStyle = `rgba(${val * 256},${val * 256},${
+                val * 256
+              },1.0)`;
+              dot(ctx, i * W, H - j * H, 1);
+            }
+          }
+        }, 500);
+      })(canvas6);
+
+      function dot(ctx, x, y, r, c) {
+        ctx.beginPath();
+        ctx.arc(x, y, r || 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    </script>
+  </body>
 </html>
